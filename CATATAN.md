@@ -1467,17 +1467,32 @@ GitHub dan tidak membingungkan kalau nanti dibandingkan dengan upstream.
 > "dibiarkan apa adanya" di atas dan "persis seperti aslinya" di bagian
 > sebelumnya.
 >
-> Yang bisa dipastikan soal isinya: `fanControl.cpp` **byte-identik** di
-> ketiga varian firmware (`v2_01`, `v2_02`, `v2_01-interface`, md5
-> `199fd543a49f69e34f9a35a4794fff10`), jadi **tidak ada perubahan isi yang
-> bertahan** — kemungkinan diedit lalu dikembalikan, atau cuma dibuka-simpan.
+> **SUDAH DIVERIFIKASI 17 Okt — isinya BERSIH.** Kedua repo resmi di-clone
+> ulang lalu di-diff file per file. Hasilnya:
 >
-> `config.h` **tidak bisa diverifikasi**: riwayat git upstream sudah dibuang
-> (lihat bagian terakhir catatan ini), jadi tidak ada pembanding. Selisihnya
-> terhadap `v2_02-pembina/config.h` memang sesuai yang didokumentasikan di
-> bawah, tapi itu inferensi, bukan verifikasi.
+> ```
+> firmware/v2_02/            19/19 file byte-identik dengan upstream
+> firmware/v2_01/            19/19 file byte-identik dengan upstream
+> firmware/v2_01-interface/  19/19 identik (config.h-nya dari repo KEDUA)
+> ```
 >
-> Satu-satunya cara memulihkan jaminan ini: clone ulang repo resmi dan diff.
+> Termasuk kedua file bermtime 15 Okt itu: `fanControl.cpp` **identik** dan
+> `config.h` **identik** dengan upstream. Jadi mtime-nya memang bergerak,
+> tapi **tidak ada satu byte pun yang berubah** — kemungkinan dibuka lalu
+> disimpan ulang, atau diedit lalu dikembalikan.
+>
+> Satu-satunya yang berbeda dari upstream: `v2_02-pembina/config.h`, dan itu
+> memang seharusnya beda (kalibrasi robot kelompok, dari pembina).
+>
+> Pembandingnya:
+>
+> ```
+> github.com/februandi/File_Robot_RNV3            63b22ef (2025-09-19)
+> github.com/februandi/SourceCodeInterface-RNV3   (config.h v2_01-interface)
+> ```
+>
+> **Jadi jaminan "salinan murni GitHub" sekarang terbukti, bukan diasumsikan.**
+> Cara mengulangi pemeriksaan ini ada di bagian terakhir catatan.
 
 Selama firmware tidak di-upload ulang, beda ini **tidak berefek apa pun** -- itu cuma
 teks di disk. Robot jalan dengan apa yang sudah ter-flash di chip-nya.
