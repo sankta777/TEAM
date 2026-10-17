@@ -4,9 +4,9 @@ MIDDLEWARE — penyambung konveyor + kamera + lengan RNV3 jadi satu alur sortir.
 Inilah "middleware" yang dimaksud: program yang duduk di TENGAH tiga subsistem
 yang tidak bisa saling bicara. ESP tidak paham G-code, robot tidak bisa bertanya
 ke kamera, kamera cuma bisa melihat. File ini yang menerjemahkan dan mengatur
-urutan. Dia tidak tahu apa-apa soal HTTP — itu urusan backend.py di atasnya.
+urutan. Dia tidak tahu apa-apa soal HTTP — itu urusan lapis di atasnya.
 
-    LAPIS 3  backend.py        API, WebSocket, database
+    LAPIS 3  (BELUM DIBUAT)   API, WebSocket, database — rencana, bukan file
     LAPIS 2  jalur.py          <-- INI
     LAPIS 1  rnv3 / esp / kontrak / kalibrasi
     LAPIS 0  robot, ESP+konveyor, kamera
@@ -514,7 +514,10 @@ def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
           kamera_host="127.0.0.1", kamera_port=kontrak.PORT_DEFAULT,
           kalibrasi_file=None,
           verbose=True, on_status=None, kosong=0.0, jauh=0.0, seed=None):
-    """Bangun Jalur lengkap. Dipakai CLI di bawah DAN backend.py nanti.
+    """Bangun Jalur lengkap. Dipakai CLI di bawah.
+
+    Sengaja dipisah dari main() supaya lapis API bisa memakainya juga kalau
+    nanti dibuat — lapis itu BELUM ADA, jangan cari file-nya.
 
     Return (jalur, penutup) — panggil penutup() untuk menutup port.
     """
