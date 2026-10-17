@@ -3,8 +3,20 @@ Cek otomatis: apakah kode kontrol robot masih works?
 
 Jalankan kapan saja, TANPA robot:   python3 cek.py
 
-Semua angka harapan di sini diturunkan dari source firmware di ../firmware/.
 Kalau ada yang GAGAL, berarti ada yang berubah/rusak -- jangan colok robot dulu.
+
+SEJAUH MANA INI BISA DIPERCAYA
+
+Sebagian besar pemeriksaan di sini memvalidasi kode kontrol terhadap
+simulasi.py. Simulator itu ditulis dari BACAAN source firmware oleh penulis
+yang sama, jadi pemeriksaan semacam itu SEBAGIAN SIRKULAR: kalau bacaannya
+salah, simulator dan tesnya akan salah bersama-sama dan tetap hijau.
+
+Bagian "simulasi.py DIUJI LAWAN SOURCE FIRMWARE" memutus lingkaran itu untuk
+tabel alias perintah teks: tabelnya dibaca langsung dari
+../firmware/v2_02/command.cpp lalu dibandingkan. Bagian lain belum punya
+pembanding independen semacam itu -- jangan baca "semua hijau" sebagai bukti
+bahwa bacaan firmware-nya benar.
 """
 
 import math
@@ -13,8 +25,13 @@ import re as _re
 import sys
 import time as _t
 
+import esp as mod_esp
+import jalur
 import jog as jg
+import kalibrasi
 import kontak
+import kontrak
+import konveyor
 import pick_place as pp
 import rnv3
 import simulasi
@@ -1093,6 +1110,273 @@ cek("pick_place.parkir() mengirim M18 di akhir",
     "M18" in [c.upper().replace(" ", "") for c in bpp.sim.log_perintah])
 cek("dan lengan berada di Z_PARKIR saat motor dimatikan",
     bpp.z == pp.Z_PARKIR, f"Z={bpp.z}")
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("14. jalur.py — geometri benda yang digenggam")
+print("=" * 68)
+
+for _L in sorted(jalur.JENIS):
+    _h = jalur.profil(_L)["tinggi"]
+    cek(f"z_ambil({_L}) = permukaan belt + tinggi benda",
+        abs(jalur.z_ambil(_L) - (jalur.Z_BELT + _h)) < 1e-9,
+        f"{jalur.z_ambil(_L)}")
+    cek(f"z_jelajah({_L}) tidak pernah di bawah Z_SAFE",
+        jalur.z_jelajah(_L) >= jalur.Z_SAFE,
+        f"{jalur.z_jelajah(_L)} vs {jalur.Z_SAFE}")
+    cek(f"clearance {_L} saat jelajah >= JELAJAH_CLEARANCE",
+        jalur.clearance_jelajah(_L) >= jalur.JELAJAH_CLEARANCE - 1e-9,
+        f"{jalur.clearance_jelajah(_L):.1f} mm")
+    cek(f"z_jelajah({_L}) masih di dalam Z_MAX robot",
+        jalur.z_jelajah(_L) <= rnv3.Z_MAX,
+        f"{jalur.z_jelajah(_L)} > {rnv3.Z_MAX}")
+
+cek("validasi_konfigurasi() bersih dengan konfigurasi sekarang",
+    jalur.validasi_konfigurasi(cetak=False) == [])
+
+# Invarian clearance diuji untuk rentang tinggi yang luas, bukan cuma dua
+# angka yang kebetulan dipakai hari ini.
+_simpan_jenis = {k: dict(v) for k, v in jalur.JENIS.items()}
+try:
+    _rusak = []
+    for _t in (0.0, 1.0, 50.0, 129.0, 130.0, 131.0, 200.0, 250.0):
+        jalur.JENIS["_uji"] = {"tinggi": _t, "taruh": (-170.0, 215.0)}
+        if jalur.clearance_jelajah("_uji") < jalur.JELAJAH_CLEARANCE - 1e-9:
+            _rusak.append(_t)
+    cek("invarian clearance berlaku untuk tinggi benda 0..250 mm",
+        _rusak == [], f"gagal di tinggi {_rusak}")
+finally:
+    jalur.JENIS.clear(); jalur.JENIS.update(_simpan_jenis)
+cek("JENIS dipulihkan setelah pengujian", "_uji" not in jalur.JENIS)
+
+# Pemeriksa clearance di validasi_konfigurasi() adalah PENJAGA REGRESI:
+# dengan rumus z_jelajah sekarang dia tidak bisa menyala (rumusnya sendiri
+# menjamin clearance). Jadi yang diuji di sini: apakah dia MENYALA kalau
+# z_jelajah dikembalikan ke perilaku lama yang cacat (konstanta Z_SAFE).
+_zj_asli = jalur.z_jelajah
+try:
+    jalur.z_jelajah = lambda label: jalur.Z_SAFE
+    _m = jalur.validasi_konfigurasi(cetak=False)
+    cek("validasi MENANGKAP kalau tinggi jelajah dikembalikan ke konstanta",
+        any("clearance" in x for x in _m), str(_m))
+finally:
+    jalur.z_jelajah = _zj_asli
+cek("z_jelajah dipulihkan setelah pengujian", jalur.z_jelajah is _zj_asli)
+
+cek("Z_SAFE jalur.py dan pick_place.py tidak melenceng",
+    jalur.Z_SAFE == pp.Z_SAFE, f"{jalur.Z_SAFE} vs {pp.Z_SAFE}")
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("15. rnv3.py — buffer serial tidak boleh basi setelah timeout")
+print("=" * 68)
+
+class _SerialUji:
+    """Serial palsu: antrean baris + pencatat reset_input_buffer()."""
+
+    def __init__(self, antre=()):
+        self.antre = list(antre)
+        self.ditulis = []
+        self.dibersihkan = 0
+
+    def write(self, b):
+        self.ditulis.append(b)
+
+    def readline(self):
+        return self.antre.pop(0) if self.antre else b""
+
+    def reset_input_buffer(self):
+        self.dibersihkan += 1
+        self.antre.clear()
+
+
+def _bot_uji(antre=()):
+    b = rnv3.RNV3.__new__(rnv3.RNV3)
+    b.ser = _SerialUji(antre)
+    b.verbose = False
+    b.events_sensor = []
+    return b
+
+# Mekanisme desync-nya: 'ok' yang nyangkut di buffer DITERIMA sebagai balasan
+# perintah berikutnya. Ini yang membuat pergeseran satu-perintah tidak terlihat.
+_b = _bot_uji([b"ok\r\n"])
+cek("'ok' basi di buffer memang diterima sebagai balasan (sumber desync)",
+    _b.send("M114", timeout=0.5) == [])
+
+# Perbaikannya: timeout WAJIB membersihkan buffer, supaya sisa balasan
+# perintah lama tidak dipanggil balasan perintah baru.
+_b = _bot_uji()
+try:
+    _b.send("G0 X0", timeout=0.05)
+    _sisa = "tidak melempar"
+except rnv3.RNV3Error as _x:
+    _sisa = str(_x)
+cek("send() timeout -> RNV3Error", "timeout" in _sisa, _sisa)
+cek("dan buffer masuk DIBERSIHKAN tepat sekali",
+    _b.ser.dibersihkan == 1, f"{_b.ser.dibersihkan}x")
+
+_b2 = _bot_uji([b"SENSOR STATUS: [1 0 1]\r\n"])
+try:
+    _b2.send("M105", timeout=0.05)
+except rnv3.RNV3Error:
+    pass
+cek("sisa balasan yang belum terbaca ikut terbuang saat timeout",
+    _b2.ser.antre == [], str(_b2.ser.antre))
+cek("helper _timeout_error() ada (bukan cuma komentar seperti sebelumnya)",
+    callable(getattr(rnv3.RNV3, "_timeout_error", None)))
+
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("16. kontrak.py — kontrak kamera & jembatan piksel->mm")
+print("=" * 68)
+
+# Peta piksel->mm yang SUDAH DIKETAHUI: mm_x = 0.5u - 160, mm_y = -0.5v + 360
+def _mm_asli(u, v):
+    return (0.5 * u - 160.0, -0.5 * v + 360.0)
+
+_pasangan = [((u, v), _mm_asli(u, v)) for u, v in
+             ((100, 100), (540, 100), (540, 400), (100, 400), (320, 250), (200, 300))]
+_kal = kalibrasi.Kalibrasi.dari_titik(_pasangan, catatan="cek.py")
+
+cek("solver kalibrasi menemukan kembali homografi yang diketahui",
+    _kal.galat_maks(_pasangan) < 1e-6, f"galat maks {_kal.galat_maks(_pasangan):.2e}")
+
+_d_px = kontrak.Deteksi(u_px=300.0, v_px=200.0, label="koin")
+cek("Deteksi berisi piksel saja -> punya_mm False", not _d_px.punya_mm)
+_d_mm = _d_px.ke_mm(_kal)
+_want = _mm_asli(300.0, 200.0)
+cek("Deteksi.ke_mm() mengubah piksel jadi milimeter", _d_mm.punya_mm)
+cek("dan nilainya benar terhadap peta yang diketahui",
+    abs(_d_mm.x_mm - _want[0]) < 1e-6 and abs(_d_mm.y_mm - _want[1]) < 1e-6,
+    f"({_d_mm.x_mm:.3f},{_d_mm.y_mm:.3f}) vs {_want}")
+
+_d_sudah = kontrak.Deteksi(x_mm=10.0, y_mm=260.0, label="koin")
+cek("Deteksi yang sudah milimeter -> punya_mm True", _d_sudah.punya_mm)
+
+_bisa, _ditolak = kontrak.yang_terjangkau(
+    [kontrak.Deteksi(x_mm=9999.0, y_mm=9999.0),
+     kontrak.Deteksi(x_mm=0.0, y_mm=jalur.BELT_Y)], jalur.z_ambil("koin"))
+cek("yang_terjangkau(): benda di luar jangkauan masuk daftar ditolak",
+    len(_ditolak) == 1, f"{len(_ditolak)}")
+cek("yang_terjangkau(): benda di zona ambil lolos", len(_bisa) == 1, f"{len(_bisa)}")
+cek("dan alasan penolakannya dijelaskan, bukan diam-diam",
+    "terlalu jauh" in _ditolak[0][1], str(_ditolak[0][1]))
+
+# Deteksi yang masih piksel TIDAK BOLEH diam-diam dianggap milimeter.
+try:
+    kontrak.Deteksi(u_px=1.0, v_px=2.0).terjangkau(0.0)
+    _px_jaga = "tidak melempar"
+except kontrak.KameraError as _x:
+    _px_jaga = str(_x)
+cek("Deteksi piksel menolak dicek jangkauan tanpa kalibrasi",
+    "piksel" in _px_jaga, _px_jaga)
+_dekat = kontrak.paling_dekat(
+    [kontrak.Deteksi(x_mm=120.0, y_mm=260.0), kontrak.Deteksi(x_mm=5.0, y_mm=260.0)],
+    x=0.0, y=260.0)
+cek("paling_dekat() memilih yang terdekat", abs(_dekat.x_mm - 5.0) < 1e-9)
+
+# Penjaga regresi untuk penyambungan kalibrasi: sebelum ini kalibrasi.py
+# adalah kode mati dan jalur.py tidak punya cara memakainya sama sekali.
+import inspect as _insp
+cek("jalur.rakit() menerima kalibrasi_file (jembatan tersambung)",
+    "kalibrasi_file" in _insp.signature(jalur.rakit).parameters)
+cek("kontrak.SumberTCP menerima kalibrasi",
+    "kalibrasi" in _insp.signature(kontrak.SumberTCP.__init__).parameters)
+cek("jalur.py benar-benar mengimpor kalibrasi",
+    "kalibrasi" in [m.__name__ for m in (kalibrasi,)] and
+    getattr(jalur, "mod_kalibrasi", None) is kalibrasi)
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("17. konveyor.py & esp.py — lapisan belt")
+print("=" * 68)
+
+_bot_belt = simulasi.robot_palsu()
+_belt_lg = konveyor.KonveyorLG(_bot_belt, channel=jalur.LG_BELT,
+                               sensor=jalur.SENSOR_BELT, settle=0.0, verbose=False)
+try:
+    _belt_lg.jalan(); _belt_lg.berhenti(); _belt_lg.detak()
+    _lg_ok, _lg_err = True, ""
+except Exception as _x:
+    _lg_ok, _lg_err = False, f"{type(_x).__name__}: {_x}"
+cek("KonveyorLG: jalan/berhenti/detak tidak melempar", _lg_ok, _lg_err)
+cek("KonveyorLG.ada_benda() mengembalikan bool",
+    isinstance(_belt_lg.ada_benda(), bool))
+
+_e = mod_esp.esp_palsu()
+try:
+    _e.jalan(); _e.berhenti(); _e.detak(); _e.ping()
+    _esp_ok, _esp_err = True, ""
+except Exception as _x:
+    _esp_ok, _esp_err = False, f"{type(_x).__name__}: {_x}"
+cek("esp_palsu(): jalan/berhenti/detak/ping tidak melempar", _esp_ok, _esp_err)
+
+_belt_esp = konveyor.KonveyorESP(_e, settle=0.0, verbose=False)
+try:
+    _belt_esp.jalan(); _belt_esp.berhenti(); _belt_esp.detak()
+    _be_ok, _be_err = True, ""
+except Exception as _x:
+    _be_ok, _be_err = False, f"{type(_x).__name__}: {_x}"
+cek("KonveyorESP: jalan/berhenti/detak tidak melempar", _be_ok, _be_err)
+cek("KonveyorESP.ada_benda() mengembalikan bool",
+    isinstance(_belt_esp.ada_benda(), bool))
+try:
+    _e.close()
+except Exception:
+    pass
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("18. simulasi.py DIUJI LAWAN SOURCE FIRMWARE, bukan lawan dirinya")
+print("=" * 68)
+# cek.py memvalidasi banyak hal terhadap simulasi.py -- tapi simulasi.py
+# ditulis dari BACAAN firmware oleh penulis yang sama, jadi tes semacam itu
+# sebagian sirkular. Bagian ini memutus lingkaran itu: tabel alias dibaca
+# langsung dari firmware/v2_02/command.cpp dan dibandingkan.
+
+_fw = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                   "..", "firmware", "v2_02", "command.cpp")
+cek("source firmware command.cpp bisa dibaca", os.path.exists(_fw), _fw)
+
+if os.path.exists(_fw):
+    with open(_fw, encoding="utf-8", errors="replace") as _f:
+        _isi = _f.read()
+    _alias_fw = {}
+    for _teks, _kode_m in _re.findall(
+            r'equalsIgnoreCase\(\s*"([^"]+)"\s*\)\s*\)\s*\{\s*'
+            r'msg\s*=\s*"([^"]+)"', _isi):
+        _alias_fw[_re.sub(r"\s+", "", _teks.upper())] = _kode_m.upper()
+    cek("tabel alias firmware berhasil diurai (8 pasangan)",
+        len(_alias_fw) == 8, f"{len(_alias_fw)}: {sorted(_alias_fw)}")
+
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "simulasi.py"), encoding="utf-8") as _f:
+        _src_sim = _f.read()
+    _m_sim = _re.search(r"alias\s*=\s*\{(.*?)\}", _src_sim, _re.S)
+    cek("tabel alias simulasi.py ditemukan", _m_sim is not None)
+    if _m_sim:
+        import ast as _ast
+        _alias_sim = {k.upper(): v.upper() for k, v in
+                      _ast.literal_eval("{" + _m_sim.group(1) + "}").items()}
+        for _t in sorted(_alias_fw):
+            cek(f"alias {_t} -> {_alias_fw[_t]} sama dengan firmware",
+                _alias_sim.get(_t) == _alias_fw[_t],
+                f"simulasi bilang {_alias_sim.get(_t)}")
+        cek("simulasi.py tidak menambah alias yang tidak ada di firmware",
+            set(_alias_sim) <= set(_alias_fw),
+            str(sorted(set(_alias_sim) - set(_alias_fw))))
+
 
 print()
 print("=" * 68)
