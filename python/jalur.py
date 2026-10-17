@@ -79,6 +79,8 @@ JENIS = {
 JENIS_DEFAULT = "koin"   # dipakai kalau label dari kamera tidak dikenal
 
 LEPAS_CLEARANCE = 10.0   # lepas benda sedikit di atas dasar bak
+JELAJAH_CLEARANCE = 30.0 # jarak minimum DASAR benda yang digenggam ke
+                         # permukaan belt/bak saat menyeberang
 
 Z_SAFE = 80.0            # ketinggian jelajah, bebas dari benda apa pun
 Z_PARKIR = -40.0         # ketinggian SEBELUM robot dimatikan. Lengan jatuh
@@ -117,6 +119,26 @@ def z_lepas(label):
     return Z_BAK + profil(label)["tinggi"] + LEPAS_CLEARANCE
 
 
+def z_jelajah(label):
+    """Tinggi jelajah saat MENGGENGGAM benda ini.
+
+    Suction cup menempel di permukaan ATAS benda, jadi bendanya menggantung
+    sepanjang `tinggi` di BAWAH gripper. Z_SAFE yang konstan mengabaikan itu:
+    botol 150 mm diangkat ke Z_SAFE=80 menyisakan dasarnya di -70 sementara
+    belt ada di -80 -- cuma 10 mm, lalu menyeberang di F_FAST.
+
+    Tidak pernah lebih rendah dari Z_SAFE, supaya rintangan tetap (dinding bak,
+    rangka belt) yang sudah tervalidasi di Z_SAFE tetap aman dilewati.
+    """
+    dasar = max(Z_BELT, Z_BAK) + profil(label)["tinggi"] + JELAJAH_CLEARANCE
+    return max(Z_SAFE, dasar)
+
+
+def clearance_jelajah(label):
+    """Sisa jarak dasar benda ke permukaan tertinggi saat jelajah (mm)."""
+    return z_jelajah(label) - profil(label)["tinggi"] - max(Z_BELT, Z_BAK)
+
+
 # ---------------------------------------------------------------------------
 # HASIL SATU SIKLUS
 # ---------------------------------------------------------------------------
@@ -152,6 +174,9 @@ def validasi_konfigurasi(cetak=True):
             (f"ambil {label} tengah", 0.0,          BELT_Y, z_ambil(label)),
             (f"bak {label}",          tx, ty, z_lepas(label)),
             (f"bak {label} @aman",    tx, ty, Z_SAFE),
+            (f"ambil {label} @jelajah kiri",  -BELT_X_LEBAR, BELT_Y, z_jelajah(label)),
+            (f"ambil {label} @jelajah kanan",  BELT_X_LEBAR, BELT_Y, z_jelajah(label)),
+            (f"bak {label} @jelajah",          tx, ty, z_jelajah(label)),
         ]
 
     for nama, x, y, z in titik:
@@ -159,15 +184,27 @@ def validasi_konfigurasi(cetak=True):
         if not ok:
             masalah.append(f"{nama} (X{x:.0f} Y{y:.0f} Z{z:.0f}): {alasan}")
 
-    # Jalur menyilang terjauh: ujung belt -> tiap bak, di Z_SAFE. check_path
+    # Jalur menyilang terjauh: ujung belt -> tiap bak, pada tinggi genggaman
+    # yang BENAR-BENAR dipakai (z_jelajah, bukan Z_SAFE). check_path
     # meniru pengecekan per-langkah firmware, jadi "lubang mati" di dekat
     # badan robot ikut ketahuan.
     for label in JENIS:
         tx, ty = profil(label)["taruh"]
         for sisi, x in (("kanan", BELT_X_LEBAR), ("kiri", -BELT_X_LEBAR)):
-            ok, alasan, _ = rnv3.check_path((x, BELT_Y, Z_SAFE), (tx, ty, Z_SAFE))
+            zj = z_jelajah(label)
+            ok, alasan, _ = rnv3.check_path((x, BELT_Y, zj), (tx, ty, zj))
             if not ok:
                 masalah.append(f"jalur belt {sisi} -> bak {label}: {alasan}")
+
+    # Clearance benda yang digenggam. Validasi lama hanya memeriksa titik
+    # gripper, bukan volume sapuan benda -- itu yang meloloskan botol dengan
+    # sisa 10 mm di atas belt.
+    for label in JENIS:
+        sisa = clearance_jelajah(label)
+        if sisa < JELAJAH_CLEARANCE - 1e-6:
+            masalah.append(
+                f"clearance {label} saat jelajah cuma {sisa:.0f} mm "
+                f"(minimum {JELAJAH_CLEARANCE:.0f} mm)")
 
     if cetak:
         if masalah:
@@ -288,7 +325,9 @@ class Jalur:
         self.bot.move(z=z, f=F_SLOW)
         self.bot.vacuum(True)
         time.sleep(VACUUM_SETTLE)
-        self.bot.move(z=Z_SAFE, f=F_SLOW)
+        # Benda sekarang menggantung di bawah gripper -> tinggi jelajah harus
+        # ikut tinggi benda. Z ini juga yang terbawa saat _taruh() menyeberang.
+        self.bot.move(z=z_jelajah(d.label), f=F_SLOW)
         self.belt.detak()        # lengan tadi lama bergerak, jaga watchdog ESP
 
     def _taruh(self, d):
