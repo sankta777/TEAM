@@ -1,0 +1,3290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RUSKOMPONEN_BOT</class>
+ <widget class="QMainWindow" name="RUSKOMPONEN_BOT">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1444</width>
+    <height>904</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>RUSKOMPONEN_BOT</string>
+  </property>
+  <property name="animated">
+   <bool>false</bool>
+  </property>
+  <property name="tabShape">
+   <enum>QTabWidget::Rounded</enum>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <property name="styleSheet">
+    <string notr="true">QWidget#centralwidget {
+    background-color: #2B2B2B; /* Latar belakang hitam keabu-abuan */
+}
+</string>
+   </property>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0">
+     <widget class="QFrame" name="frame_portUSB">
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>60</height>
+       </size>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <property name="lineWidth">
+       <number>1</number>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="Line" name="line">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_star">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>-1</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+         </property>
+         <property name="text">
+          <string>Star</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_pause">
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+         </property>
+         <property name="text">
+          <string>Pause</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_stop">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>-1</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+         </property>
+         <property name="text">
+          <string>Stop</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_save_as">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>-1</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+         </property>
+         <property name="text">
+          <string>Save As</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_port_usb">
+         <property name="font">
+          <font>
+           <pointsize>15</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QLabel#label_port_usb {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+         </property>
+         <property name="text">
+          <string>PORT USB</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_sambungkan">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>-1</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+         </property>
+         <property name="text">
+          <string>Sambukan</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="lineEdit_com">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>200</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>-1</pointsize>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QLineEdit {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 8px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    padding: 6px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna latar belakang saat teks diseleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QLineEdit:hover {
+    border: 2px solid #81A1C1; /* Border lebih terang saat hover */
+}
+
+/* Efek saat LineEdit aktif (focus) */
+QLineEdit:focus {
+    border: 2px solid #88C0D0; /* Warna lebih cerah saat aktif */
+    background-color: #434C5E; /* Latar belakang sedikit lebih terang */
+}
+</string>
+         </property>
+         <property name="text">
+          <string>COM</string>
+         </property>
+         <property name="maxLength">
+          <number>10</number>
+         </property>
+         <property name="frame">
+          <bool>false</bool>
+         </property>
+         <property name="echoMode">
+          <enum>QLineEdit::Normal</enum>
+         </property>
+         <property name="cursorPosition">
+          <number>3</number>
+         </property>
+         <property name="dragEnabled">
+          <bool>false</bool>
+         </property>
+         <property name="readOnly">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_status">
+         <property name="font">
+          <font>
+           <pointsize>15</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QLabel#label_status {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+         </property>
+         <property name="text">
+          <string>STATUS</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_calibration">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>-1</pointsize>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+         </property>
+         <property name="text">
+          <string>Calibration</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QFrame" name="frame_bawah">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::NoFrame</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QListWidget" name="listWidget_save">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>400</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="sizeIncrement">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="baseSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <pointsize>-1</pointsize>
+          </font>
+         </property>
+         <property name="mouseTracking">
+          <bool>false</bool>
+         </property>
+         <property name="tabletTracking">
+          <bool>false</bool>
+         </property>
+         <property name="acceptDrops">
+          <bool>false</bool>
+         </property>
+         <property name="autoFillBackground">
+          <bool>false</bool>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">QListWidget {
+    background-color: #2E3440; /* Warna latar belakang */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 10px; /* Sudut melengkung */
+    color: #00FF00; /* Warna teks hijau */
+    font-size: 14px; /* Ukuran font */
+    padding: 5px; /* Padding di dalam list */
+}
+
+QListWidget::item {
+    background-color: #3B4252; /* Warna latar belakang item */
+    border-radius: 5px; /* Sudut melengkung untuk item */
+    padding: 0px; /* Padding di dalam item */
+    margin: 1px; /* Jarak antar item */
+}
+
+QListWidget::item:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    color: #8FBCBB; /* Warna teks saat hover */
+}
+
+QListWidget::item:selected {
+    background-color: #81A1C1; /* Warna latar belakang saat dipilih */
+    color: #2E3440; /* Warna teks saat dipilih */
+}
+
+QScrollBar:vertical {
+    background-color: #3B4252; /* Warna latar belakang scrollbar */
+    width: 12px; /* Lebar scrollbar */
+    margin: 0px; /* Margin scrollbar */
+}
+
+QScrollBar::handle:vertical {
+    background-color: #4C566A; /* Warna handle scrollbar */
+    border-radius: 6px; /* Sudut melengkung handle */
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    background: none; /* Menghilangkan tombol tambahan di scrollbar */
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none; /* Menghilangkan latar belakang tambahan di scrollbar */
+}</string>
+         </property>
+         <property name="tabKeyNavigation">
+          <bool>false</bool>
+         </property>
+         <property name="dragEnabled">
+          <bool>true</bool>
+         </property>
+         <property name="dragDropOverwriteMode">
+          <bool>false</bool>
+         </property>
+         <property name="alternatingRowColors">
+          <bool>false</bool>
+         </property>
+         <property name="isWrapping" stdset="0">
+          <bool>false</bool>
+         </property>
+         <property name="uniformItemSizes">
+          <bool>false</bool>
+         </property>
+         <property name="wordWrap">
+          <bool>false</bool>
+         </property>
+         <property name="selectionRectVisible">
+          <bool>false</bool>
+         </property>
+         <item>
+          <property name="text">
+           <string>G0 X0 Y100 Z2 F200</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>G0 X0 Y100 Z222 F200</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>G0 X0 Y100 Z2 F200</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>G0 X0 Y100 Z2 F200</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="frame_3">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_6">
+          <item>
+           <widget class="QLabel" name="label_8">
+            <property name="font">
+             <font>
+              <pointsize>15</pointsize>
+              <weight>75</weight>
+              <italic>false</italic>
+              <bold>true</bold>
+              <underline>false</underline>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QLabel#label_8 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+            </property>
+            <property name="text">
+             <string>PROGRAM</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_edit">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Edit program</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_next">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Next</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_new">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>New</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_delete">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Delete</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_clear">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Clear</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_up">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>UP</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_dwon">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Dwon</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_9">
+            <property name="font">
+             <font>
+              <pointsize>15</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+              <underline>false</underline>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QLabel#label_9 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+            </property>
+            <property name="text">
+             <string>GRIPPER</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_gripper_vacum">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Gripper vacum</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_gripper_servo">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Gripper servo</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_save_servo">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Save gripper</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_10">
+            <property name="font">
+             <font>
+              <pointsize>15</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+              <underline>false</underline>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QLabel#label_10 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+            </property>
+            <property name="text">
+             <string>OUTPUT</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_LG1">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>LG1</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_LG2">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>LG2</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_LG3">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>LG3</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_save_LG">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Save LG</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="verticalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="frame_2">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <item>
+           <widget class="QLabel" name="label_12">
+            <property name="font">
+             <font>
+              <pointsize>15</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QLabel#label_12 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+            </property>
+            <property name="text">
+             <string>CEK NOV</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_cek_posisi">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Cek posisi</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_endstop">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Cek endstop</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_motor_ONOFF">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Motor</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_fan">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Fan</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_11">
+            <property name="font">
+             <font>
+              <pointsize>15</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QLabel#label_11 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+            </property>
+            <property name="text">
+             <string>INPUT</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_S1">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Sensor 1</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_S2">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Sensor 2</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_S3">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Sensor 3</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_save_sensor">
+            <property name="font">
+             <font>
+              <pointsize>-1</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Save sensor</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_3">
+            <property name="font">
+             <font>
+              <pointsize>15</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QLabel#label_3 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+            </property>
+            <property name="text">
+             <string>INFO</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_info">
+            <property name="styleSheet">
+             <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+            </property>
+            <property name="text">
+             <string>Info</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="verticalSpacer">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="frame_4">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_2">
+          <property name="leftMargin">
+           <number>9</number>
+          </property>
+          <property name="topMargin">
+           <number>9</number>
+          </property>
+          <item>
+           <widget class="QFrame" name="frame_5">
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_3">
+             <property name="spacing">
+              <number>3</number>
+             </property>
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QFrame" name="frame_12">
+               <property name="frameShape">
+                <enum>QFrame::StyledPanel</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Raised</enum>
+               </property>
+               <layout class="QHBoxLayout" name="horizontalLayout_7">
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QFrame" name="frame">
+                  <property name="enabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="frameShape">
+                   <enum>QFrame::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Raised</enum>
+                  </property>
+                  <layout class="QVBoxLayout" name="verticalLayout_4">
+                   <item>
+                    <widget class="QFrame" name="frame_X">
+                     <property name="frameShape">
+                      <enum>QFrame::StyledPanel</enum>
+                     </property>
+                     <property name="frameShadow">
+                      <enum>QFrame::Raised</enum>
+                     </property>
+                     <layout class="QHBoxLayout" name="horizontalLayout_3">
+                      <item>
+                       <widget class="QLabel" name="label">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QLabel#label {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+                        </property>
+                        <property name="text">
+                         <string>X</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QSlider" name="horizontalSlider_X">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                          <weight>50</weight>
+                          <bold>false</bold>
+                         </font>
+                        </property>
+                        <property name="autoFillBackground">
+                         <bool>false</bool>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QSlider#horizontalSlider_X {
+    background-color: #2E2E2E; /* Latar belakang slider */
+    border-radius: 12px; /* Membuat sudut melengkung pada slider */
+    height: 30px; /* Menambah tinggi keseluruhan slider untuk membuatnya lebih tebal */
+}
+
+QSlider#horizontalSlider_X::groove:horizontal {
+    border: 1px solid #666; /* Border untuk jalur slider */
+    background: #3A3A3A; /* Latar belakang jalur slider */
+    height: 15px; /* Membuat jalur slider lebih tebal */
+    border-radius: 8px; /* Sudut melengkung pada jalur */
+}
+
+QSlider#horizontalSlider_X::handle:horizontal {
+    background: #4CAF50; /* Warna handle (knob) */
+    border: 2px solid #388E3C; /* Border di sekitar handle */
+    width: 30px; /* Lebar handle lebih besar */
+    height: 30px; /* Tinggi handle lebih besar */
+    border-radius: 17px; /* Sudut melengkung pada handle untuk membuatnya bulat */
+    margin: -12px 0; /* Membuat handle lebih besar dari jalur */
+}
+
+QSlider#horizontalSlider_X::sub-page:horizontal {
+    background: #1B5E20; /* Warna bagian yang sudah terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+
+QSlider#horizontalSlider_X::add-page:horizontal {
+    background: #757575; /* Warna bagian yang belum terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}</string>
+                        </property>
+                        <property name="orientation">
+                         <enum>Qt::Horizontal</enum>
+                        </property>
+                        <property name="invertedAppearance">
+                         <bool>false</bool>
+                        </property>
+                        <property name="invertedControls">
+                         <bool>false</bool>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="doubleSpinBox_X">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="minimumSize">
+                         <size>
+                          <width>150</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QDoubleSpinBox {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 6px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Membuat teks bold */
+    padding: 4px 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna seleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QDoubleSpinBox:hover {
+    border: 2px solid #81A1C1;
+}
+
+/* Efek saat aktif (focus) */
+QDoubleSpinBox:focus {
+    border: 2px solid #88C0D0;
+    background-color: #434C5E;
+}
+</string>
+                        </property>
+                        <property name="wrapping">
+                         <bool>false</bool>
+                        </property>
+                        <property name="alignment">
+                         <set>Qt::AlignCenter</set>
+                        </property>
+                        <property name="showGroupSeparator" stdset="0">
+                         <bool>false</bool>
+                        </property>
+                        <property name="minimum">
+                         <double>0.000000000000000</double>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QFrame" name="frame_Y">
+                     <property name="frameShape">
+                      <enum>QFrame::StyledPanel</enum>
+                     </property>
+                     <property name="frameShadow">
+                      <enum>QFrame::Raised</enum>
+                     </property>
+                     <layout class="QHBoxLayout" name="horizontalLayout_4">
+                      <item>
+                       <widget class="QLabel" name="label_2">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QLabel#label_2 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+                        </property>
+                        <property name="text">
+                         <string>Y</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QSlider" name="horizontalSlider_Y">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QSlider#horizontalSlider_Y {
+    background-color: #2E2E2E; /* Latar belakang slider */
+    border-radius: 12px; /* Membuat sudut melengkung pada slider */
+    height: 30px; /* Menambah tinggi keseluruhan slider untuk membuatnya lebih tebal */
+}
+
+QSlider#horizontalSlider_Y::groove:horizontal {
+    border: 1px solid #666; /* Border untuk jalur slider */
+    background: #3A3A3A; /* Latar belakang jalur slider */
+    height: 15px; /* Membuat jalur slider lebih tebal */
+    border-radius: 8px; /* Sudut melengkung pada jalur */
+}
+
+QSlider#horizontalSlider_Y::handle:horizontal {
+    background: #4CAF50; /* Warna handle (knob) */
+    border: 2px solid #388E3C; /* Border di sekitar handle */
+    width: 30px; /* Lebar handle lebih besar */
+    height: 30px; /* Tinggi handle lebih besar */
+    border-radius: 17px; /* Sudut melengkung pada handle untuk membuatnya bulat */
+    margin: -12px 0; /* Membuat handle lebih besar dari jalur */
+}
+
+QSlider#horizontalSlider_Y::sub-page:horizontal {
+    background: #1B5E20; /* Warna bagian yang sudah terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+
+QSlider#horizontalSlider_Y::add-page:horizontal {
+    background: #757575; /* Warna bagian yang belum terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+</string>
+                        </property>
+                        <property name="orientation">
+                         <enum>Qt::Horizontal</enum>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="doubleSpinBox_Y">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="minimumSize">
+                         <size>
+                          <width>150</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QDoubleSpinBox {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 6px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Membuat teks bold */
+    padding: 4px 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna seleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QDoubleSpinBox:hover {
+    border: 2px solid #81A1C1;
+}
+
+/* Efek saat aktif (focus) */
+QDoubleSpinBox:focus {
+    border: 2px solid #88C0D0;
+    background-color: #434C5E;
+}
+</string>
+                        </property>
+                        <property name="alignment">
+                         <set>Qt::AlignCenter</set>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QFrame" name="frame_Z">
+                     <property name="frameShape">
+                      <enum>QFrame::StyledPanel</enum>
+                     </property>
+                     <property name="frameShadow">
+                      <enum>QFrame::Raised</enum>
+                     </property>
+                     <layout class="QHBoxLayout" name="horizontalLayout_5">
+                      <item>
+                       <widget class="QLabel" name="label_4">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QLabel#label_4 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+                        </property>
+                        <property name="text">
+                         <string>Z</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QSlider" name="horizontalSlider_Z">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QSlider#horizontalSlider_Z {
+    background-color: #2E2E2E; /* Latar belakang slider */
+    border-radius: 12px; /* Membuat sudut melengkung pada slider */
+    height: 30px; /* Menambah tinggi keseluruhan slider untuk membuatnya lebih tebal */
+}
+
+QSlider#horizontalSlider_Z::groove:horizontal {
+    border: 1px solid #666; /* Border untuk jalur slider */
+    background: #3A3A3A; /* Latar belakang jalur slider */
+    height: 15px; /* Membuat jalur slider lebih tebal */
+    border-radius: 8px; /* Sudut melengkung pada jalur */
+}
+
+QSlider#horizontalSlider_Z::handle:horizontal {
+    background: #4CAF50; /* Warna handle (knob) */
+    border: 2px solid #388E3C; /* Border di sekitar handle */
+    width: 30px; /* Lebar handle lebih besar */
+    height: 30px; /* Tinggi handle lebih besar */
+    border-radius: 17px; /* Sudut melengkung pada handle untuk membuatnya bulat */
+    margin: -12px 0; /* Membuat handle lebih besar dari jalur */
+}
+
+QSlider#horizontalSlider_Z::sub-page:horizontal {
+    background: #1B5E20; /* Warna bagian yang sudah terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+
+QSlider#horizontalSlider_Z::add-page:horizontal {
+    background: #757575; /* Warna bagian yang belum terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+</string>
+                        </property>
+                        <property name="orientation">
+                         <enum>Qt::Horizontal</enum>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="doubleSpinBox_Z">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="minimumSize">
+                         <size>
+                          <width>150</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QDoubleSpinBox {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 6px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Membuat teks bold */
+    padding: 4px 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna seleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QDoubleSpinBox:hover {
+    border: 2px solid #81A1C1;
+}
+
+/* Efek saat aktif (focus) */
+QDoubleSpinBox:focus {
+    border: 2px solid #88C0D0;
+    background-color: #434C5E;
+}
+</string>
+                        </property>
+                        <property name="alignment">
+                         <set>Qt::AlignCenter</set>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QFrame" name="frame_E">
+                     <property name="font">
+                      <font>
+                       <pointsize>15</pointsize>
+                      </font>
+                     </property>
+                     <property name="frameShape">
+                      <enum>QFrame::StyledPanel</enum>
+                     </property>
+                     <property name="frameShadow">
+                      <enum>QFrame::Raised</enum>
+                     </property>
+                     <layout class="QHBoxLayout" name="horizontalLayout_6">
+                      <item>
+                       <widget class="QLabel" name="label_5">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QLabel#label_5 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+                        </property>
+                        <property name="text">
+                         <string>E</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QSlider" name="horizontalSlider_E">
+                        <property name="styleSheet">
+                         <string notr="true">QSlider#horizontalSlider_E {
+    background-color: #2E2E2E; /* Latar belakang slider */
+    border-radius: 12px; /* Membuat sudut melengkung pada slider */
+    height: 30px; /* Menambah tinggi keseluruhan slider untuk membuatnya lebih tebal */
+}
+
+QSlider#horizontalSlider_E::groove:horizontal {
+    border: 1px solid #666; /* Border untuk jalur slider */
+    background: #3A3A3A; /* Latar belakang jalur slider */
+    height: 15px; /* Membuat jalur slider lebih tebal */
+    border-radius: 8px; /* Sudut melengkung pada jalur */
+}
+
+QSlider#horizontalSlider_E::handle:horizontal {
+    background: #4CAF50; /* Warna handle (knob) */
+    border: 2px solid #388E3C; /* Border di sekitar handle */
+    width: 30px; /* Lebar handle lebih besar */
+    height: 30px; /* Tinggi handle lebih besar */
+    border-radius: 17px; /* Sudut melengkung pada handle untuk membuatnya bulat */
+    margin: -12px 0; /* Membuat handle lebih besar dari jalur */
+}
+
+QSlider#horizontalSlider_E::sub-page:horizontal {
+    background: #1B5E20; /* Warna bagian yang sudah terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+
+QSlider#horizontalSlider_E::add-page:horizontal {
+    background: #757575; /* Warna bagian yang belum terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+</string>
+                        </property>
+                        <property name="orientation">
+                         <enum>Qt::Horizontal</enum>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="doubleSpinBox_E">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="minimumSize">
+                         <size>
+                          <width>150</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QDoubleSpinBox {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 6px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Membuat teks bold */
+    padding: 4px 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna seleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QDoubleSpinBox:hover {
+    border: 2px solid #81A1C1;
+}
+
+/* Efek saat aktif (focus) */
+QDoubleSpinBox:focus {
+    border: 2px solid #88C0D0;
+    background-color: #434C5E;
+}
+</string>
+                        </property>
+                        <property name="alignment">
+                         <set>Qt::AlignCenter</set>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QFrame" name="frame_speed">
+                     <property name="frameShape">
+                      <enum>QFrame::StyledPanel</enum>
+                     </property>
+                     <property name="frameShadow">
+                      <enum>QFrame::Raised</enum>
+                     </property>
+                     <layout class="QHBoxLayout" name="horizontalLayout_8">
+                      <item>
+                       <widget class="QLabel" name="label_6">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QLabel#label_6 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+                        </property>
+                        <property name="text">
+                         <string>F</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QSlider" name="horizontalSlider_speed">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QSlider#horizontalSlider_speed {
+    background-color: #2E2E2E; /* Latar belakang slider */
+    border-radius: 12px; /* Membuat sudut melengkung pada slider */
+    height: 30px; /* Menambah tinggi keseluruhan slider untuk membuatnya lebih tebal */
+}
+
+QSlider#horizontalSlider_speed::groove:horizontal {
+    border: 1px solid #666; /* Border untuk jalur slider */
+    background: #3A3A3A; /* Latar belakang jalur slider */
+    height: 15px; /* Membuat jalur slider lebih tebal */
+    border-radius: 8px; /* Sudut melengkung pada jalur */
+}
+
+QSlider#horizontalSlider_speed::handle:horizontal {
+    background: #4CAF50; /* Warna handle (knob) */
+    border: 2px solid #388E3C; /* Border di sekitar handle */
+    width: 30px; /* Lebar handle lebih besar */
+    height: 30px; /* Tinggi handle lebih besar */
+    border-radius: 17px; /* Sudut melengkung pada handle untuk membuatnya bulat */
+    margin: -12px 0; /* Membuat handle lebih besar dari jalur */
+}
+
+QSlider#horizontalSlider_speed::sub-page:horizontal {
+    background: #1B5E20; /* Warna bagian yang sudah terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+
+QSlider#horizontalSlider_speed::add-page:horizontal {
+    background: #757575; /* Warna bagian yang belum terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+</string>
+                        </property>
+                        <property name="orientation">
+                         <enum>Qt::Horizontal</enum>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="doubleSpinBox_speed">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="minimumSize">
+                         <size>
+                          <width>150</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QDoubleSpinBox {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 6px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Membuat teks bold */
+    padding: 4px 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna seleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QDoubleSpinBox:hover {
+    border: 2px solid #81A1C1;
+}
+
+/* Efek saat aktif (focus) */
+QDoubleSpinBox:focus {
+    border: 2px solid #88C0D0;
+    background-color: #434C5E;
+}
+</string>
+                        </property>
+                        <property name="alignment">
+                         <set>Qt::AlignCenter</set>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QFrame" name="frame_gripper">
+                     <property name="frameShape">
+                      <enum>QFrame::StyledPanel</enum>
+                     </property>
+                     <property name="frameShadow">
+                      <enum>QFrame::Raised</enum>
+                     </property>
+                     <layout class="QHBoxLayout" name="horizontalLayout_9">
+                      <item>
+                       <widget class="QLabel" name="label_7">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QLabel#label_7 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+                        </property>
+                        <property name="text">
+                         <string>A</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QSlider" name="horizontalSlider_gripper_servo">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QSlider#horizontalSlider_gripper_servo {
+    background-color: #2E2E2E; /* Latar belakang slider */
+    border-radius: 12px; /* Membuat sudut melengkung pada slider */
+    height: 30px; /* Menambah tinggi keseluruhan slider untuk membuatnya lebih tebal */
+}
+
+QSlider#horizontalSlider_gripper_servo::groove:horizontal {
+    border: 1px solid #666; /* Border untuk jalur slider */
+    background: #3A3A3A; /* Latar belakang jalur slider */
+    height: 15px; /* Membuat jalur slider lebih tebal */
+    border-radius: 8px; /* Sudut melengkung pada jalur */
+}
+
+QSlider#horizontalSlider_gripper_servo::handle:horizontal {
+    background: #4CAF50; /* Warna handle (knob) */
+    border: 2px solid #388E3C; /* Border di sekitar handle */
+    width: 30px; /* Lebar handle lebih besar */
+    height: 30px; /* Tinggi handle lebih besar */
+    border-radius: 17px; /* Sudut melengkung pada handle untuk membuatnya bulat */
+    margin: -12px 0; /* Membuat handle lebih besar dari jalur */
+}
+
+QSlider#horizontalSlider_gripper_servo::sub-page:horizontal {
+    background: #1B5E20; /* Warna bagian yang sudah terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+
+QSlider#horizontalSlider_gripper_servo::add-page:horizontal {
+    background: #757575; /* Warna bagian yang belum terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+</string>
+                        </property>
+                        <property name="orientation">
+                         <enum>Qt::Horizontal</enum>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="doubleSpinBox_gripper_servo">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="minimumSize">
+                         <size>
+                          <width>0</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QDoubleSpinBox {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 6px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Membuat teks bold */
+    padding: 4px 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna seleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QDoubleSpinBox:hover {
+    border: 2px solid #81A1C1;
+}
+
+/* Efek saat aktif (focus) */
+QDoubleSpinBox:focus {
+    border: 2px solid #88C0D0;
+    background-color: #434C5E;
+}
+</string>
+                        </property>
+                        <property name="alignment">
+                         <set>Qt::AlignCenter</set>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QLabel" name="label_13">
+                        <property name="font">
+                         <font>
+                          <pointsize>15</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QLabel#label_13 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+                        </property>
+                        <property name="text">
+                         <string>B</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QSlider" name="horizontalSlider_gripper_servoB">
+                        <property name="maximumSize">
+                         <size>
+                          <width>16777215</width>
+                          <height>16777215</height>
+                         </size>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QSlider#horizontalSlider_gripper_servoB {
+    background-color: #2E2E2E; /* Latar belakang slider */
+    border-radius: 12px; /* Membuat sudut melengkung pada slider */
+    height: 30px; /* Menambah tinggi keseluruhan slider untuk membuatnya lebih tebal */
+}
+
+QSlider#horizontalSlider_gripper_servoB::groove:horizontal {
+    border: 1px solid #666; /* Border untuk jalur slider */
+    background: #3A3A3A; /* Latar belakang jalur slider */
+    height: 15px; /* Membuat jalur slider lebih tebal */
+    border-radius: 8px; /* Sudut melengkung pada jalur */
+}
+
+QSlider#horizontalSlider_gripper_servoB::handle:horizontal {
+    background: #4CAF50; /* Warna handle (knob) */
+    border: 2px solid #388E3C; /* Border di sekitar handle */
+    width: 30px; /* Lebar handle lebih besar */
+    height: 30px; /* Tinggi handle lebih besar */
+    border-radius: 17px; /* Sudut melengkung pada handle untuk membuatnya bulat */
+    margin: -12px 0; /* Membuat handle lebih besar dari jalur */
+}
+
+QSlider#horizontalSlider_gripper_servoB::sub-page:horizontal {
+    background: #1B5E20; /* Warna bagian yang sudah terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+
+QSlider#horizontalSlider_gripper_servoB::add-page:horizontal {
+    background: #757575; /* Warna bagian yang belum terisi */
+    border-radius: 8px; /* Sudut melengkung */
+}
+</string>
+                        </property>
+                        <property name="orientation">
+                         <enum>Qt::Horizontal</enum>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="doubleSpinBox_gripper_servoB">
+                        <property name="styleSheet">
+                         <string notr="true">QDoubleSpinBox {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 6px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Membuat teks bold */
+    padding: 4px 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna seleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QDoubleSpinBox:hover {
+    border: 2px solid #81A1C1;
+}
+
+/* Efek saat aktif (focus) */
+QDoubleSpinBox:focus {
+    border: 2px solid #88C0D0;
+    background-color: #434C5E;
+}</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QPushButton" name="pushButton_save_servo_seld">
+                        <property name="styleSheet">
+                         <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+                        </property>
+                        <property name="text">
+                         <string>Save</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QFrame" name="frame_button">
+                     <property name="enabled">
+                      <bool>true</bool>
+                     </property>
+                     <property name="frameShape">
+                      <enum>QFrame::StyledPanel</enum>
+                     </property>
+                     <property name="frameShadow">
+                      <enum>QFrame::Raised</enum>
+                     </property>
+                     <layout class="QHBoxLayout" name="horizontalLayout_10">
+                      <item>
+                       <widget class="QPushButton" name="pushButton_save_move">
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+                        </property>
+                        <property name="text">
+                         <string>Save Move</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QPushButton" name="pushButton_LG4">
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+                        </property>
+                        <property name="text">
+                         <string>Save delay</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QDoubleSpinBox" name="doubleSpinBox">
+                        <property name="styleSheet">
+                         <string notr="true">QDoubleSpinBox {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 6px; /* Sudut melengkung */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Membuat teks bold */
+    padding: 4px 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna seleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QDoubleSpinBox:hover {
+    border: 2px solid #81A1C1;
+}
+
+/* Efek saat aktif (focus) */
+QDoubleSpinBox:focus {
+    border: 2px solid #88C0D0;
+    background-color: #434C5E;
+}
+</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QPushButton" name="pushButton_home">
+                        <property name="font">
+                         <font>
+                          <pointsize>-1</pointsize>
+                          <weight>75</weight>
+                          <bold>true</bold>
+                         </font>
+                        </property>
+                        <property name="styleSheet">
+                         <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 18px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+                        </property>
+                        <property name="text">
+                         <string>Go Home</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QFrame" name="frame_output_input">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>400</height>
+             </size>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::NoFrame</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
+            </property>
+            <layout class="QHBoxLayout" name="horizontalLayout_13">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QFrame" name="frame_6">
+               <property name="enabled">
+                <bool>true</bool>
+               </property>
+               <property name="frameShape">
+                <enum>QFrame::NoFrame</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Plain</enum>
+               </property>
+               <layout class="QVBoxLayout" name="verticalLayout_5">
+                <item>
+                 <widget class="QTextEdit" name="textEdit_vew">
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>0</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <pointsize>-1</pointsize>
+                   </font>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">QTextEdit {
+    background-color: #2E3440; /* Warna latar belakang utama */
+    color: #00FF00; /* Warna teks */
+    border: 2px solid #1B5E20; /* Border dengan warna gelap */
+    border-radius: 8px; /* Sudut melengkung */
+    font-size: 14px; /* Ukuran font */
+    padding: 8px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna latar belakang saat teks diseleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Scrollbar Vertikal */
+QScrollBar:vertical {
+    background: #3B4252; /* Warna latar belakang scrollbar */
+    width: 12px; /* Lebar scrollbar */
+    border-radius: 6px;
+}
+
+/* Handle (bagian yang bisa digerakkan) */
+QScrollBar::handle:vertical {
+    background: #4C566A; /* Warna handle */
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #81A1C1; /* Warna handle saat hover */
+}
+
+/* Tombol atas &amp; bawah di scrollbar */
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    background: none;
+}
+
+/* Latar belakang area kosong di scrollbar */
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+/* Scrollbar Horizontal */
+QScrollBar:horizontal {
+    background: #3B4252;
+    height: 12px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #4C566A;
+    border-radius: 6px;
+    min-width: 20px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #81A1C1;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    background: none;
+}
+
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: none;
+}
+</string>
+                  </property>
+                  <property name="lineWrapColumnOrWidth">
+                   <number>0</number>
+                  </property>
+                  <property name="readOnly">
+                   <bool>true</bool>
+                  </property>
+                  <property name="html">
+                   <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'MS Shell Dlg 2'; font-size:14px; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:14px;&quot;&gt;Ruskomponen&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  </property>
+                  <property name="placeholderText">
+                   <string/>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QFrame" name="frame_7">
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>60</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>115</height>
+                   </size>
+                  </property>
+                  <property name="sizeIncrement">
+                   <size>
+                    <width>0</width>
+                    <height>0</height>
+                   </size>
+                  </property>
+                  <property name="frameShape">
+                   <enum>QFrame::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Raised</enum>
+                  </property>
+                  <layout class="QHBoxLayout" name="horizontalLayout_20">
+                   <item>
+                    <widget class="QLabel" name="label_24">
+                     <property name="font">
+                      <font>
+                       <pointsize>15</pointsize>
+                       <weight>75</weight>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="styleSheet">
+                      <string notr="true">QLabel#label_24 {
+    color: #00FF00; /* Mengubah warna teks menjadi putih */
+}
+</string>
+                     </property>
+                     <property name="text">
+                      <string>INPUT</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLineEdit" name="lineEdit">
+                     <property name="enabled">
+                      <bool>true</bool>
+                     </property>
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>30</height>
+                      </size>
+                     </property>
+                     <property name="maximumSize">
+                      <size>
+                       <width>16777215</width>
+                       <height>16777215</height>
+                      </size>
+                     </property>
+                     <property name="sizeIncrement">
+                      <size>
+                       <width>0</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                     <property name="baseSize">
+                      <size>
+                       <width>0</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                     <property name="font">
+                      <font>
+                       <pointsize>-1</pointsize>
+                      </font>
+                     </property>
+                     <property name="styleSheet">
+                      <string notr="true">QLineEdit {
+    background-color: #3B4252; /* Warna latar belakang */
+    color: #D8DEE9; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 8px; /* Sudut melengkung */
+    font-size: 15px; /* Ukuran font */
+    padding: 6px; /* Padding dalam */
+    selection-background-color: #81A1C1; /* Warna latar belakang saat teks diseleksi */
+    selection-color: #2E3440; /* Warna teks saat diseleksi */
+}
+
+/* Efek hover */
+QLineEdit:hover {
+    border: 2px solid #81A1C1; /* Border lebih terang saat hover */
+}
+
+/* Efek saat LineEdit aktif (focus) */
+QLineEdit:focus {
+    border: 2px solid #88C0D0; /* Warna lebih cerah saat aktif */
+    background-color: #434C5E; /* Latar belakang sedikit lebih terang */
+}
+</string>
+                     </property>
+                     <property name="inputMask">
+                      <string/>
+                     </property>
+                     <property name="text">
+                      <string/>
+                     </property>
+                     <property name="frame">
+                      <bool>true</bool>
+                     </property>
+                     <property name="placeholderText">
+                      <string>Kirim Perintah Manual Contoh G28</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="pushButton_save_manual">
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                     <property name="maximumSize">
+                      <size>
+                       <width>16777215</width>
+                       <height>16777215</height>
+                      </size>
+                     </property>
+                     <property name="sizeIncrement">
+                      <size>
+                       <width>0</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                     <property name="styleSheet">
+                      <string notr="true">QPushButton {
+    background-color: #2E3440; /* Warna latar belakang tombol */
+    color: #ECEFF4; /* Warna teks */
+    border: 2px solid #1B5E20; /* Warna border */
+    border-radius: 5px; /* Sudut tombol yang melengkung */
+    padding: 5px; /* Padding di dalam tombol */
+    font-size: 14px; /* Ukuran font */
+    font-weight: bold; /* Ketebalan font */
+}
+
+QPushButton:hover {
+    background-color: #4C566A; /* Warna latar belakang saat hover */
+    border: 2px solid #81A1C1; /* Warna border saat hover */
+}
+
+QPushButton:pressed {
+    background-color: #81A1C1; /* Warna latar belakang saat ditekan */
+    border: 2px solid #81A1C1; /* Warna border saat ditekan */
+    color: #2E3440; /* Warna teks saat ditekan */
+}
+
+QPushButton:disabled {
+    background-color: #3B4252; /* Warna latar belakang saat tombol dinonaktifkan */
+    color: #7F8C9A; /* Warna teks saat tombol dinonaktifkan */
+    border: 2px solid #3B4252; /* Warna border saat tombol dinonaktifkan */
+}</string>
+                     </property>
+                     <property name="text">
+                      <string>Save manual</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

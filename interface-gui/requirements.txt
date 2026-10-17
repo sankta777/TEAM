@@ -1,0 +1,15 @@
+# Ruskomponen BOT BLK - Python Dependencies
+# Install dengan: pip install -r requirements.txt
+
+# PyQt5 - GUI Framework
+PyQt5==5.15.9
+PyQt5-sip==12.13.0
+
+# PySerial - Serial Communication
+pyserial==3.5
+
+# Catatan:
+# - Python standard libraries (sys, time, asyncio, threading, re, ctypes) 
+#   sudah termasuk dalam Python installation
+# - Tested dengan Python 3.7, 3.8, 3.9, 3.10, 3.11
+# - Windows API (dwmapi.dll) tersedia di Windows 7/8/10/11

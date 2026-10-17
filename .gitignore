@@ -1,0 +1,17 @@
+# ── Artefak Python (bisa dibuat ulang) ────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ── Binari vendor ─────────────────────────────────────────────────────
+# Tetap ADA di disk, sengaja tidak dilacak git supaya riwayat repo tidak
+# membawa 65,7 MB selamanya. Manual PDF masih dirujuk CATATAN.md, jadi
+# file-nya tidak dipindah — hanya tidak di-commit.
+docs/Buku panduan robot.pdf
+software-robot/Rus-setup-0.2.exe
+
+# ── OS / editor ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
