@@ -38,9 +38,6 @@ import sys
 import rnv3
 from rnv3 import RNV3, RNV3Error
 
-PORT = "COM4"   # Windows: Device Manager > Ports. Nomor bisa berubah kalau
-                # robot dicolok ke lubang USB yang berbeda.
-
 
 # ===========================================================================
 # PEMBACAAN  — semua method di bawah ini hanya mengirim M114 / M119 / M105

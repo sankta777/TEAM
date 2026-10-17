@@ -82,7 +82,10 @@ LEPAS_CLEARANCE = 10.0   # lepas benda sedikit di atas dasar bak
 JELAJAH_CLEARANCE = 30.0 # jarak minimum DASAR benda yang digenggam ke
                          # permukaan belt/bak saat menyeberang
 
-Z_SAFE = 80.0            # ketinggian jelajah, bebas dari benda apa pun
+Z_SAFE = 80.0            # ketinggian jelajah dasar untuk gripper KOSONG.
+                         # Saat menggenggam, pakai z_jelajah() -- benda
+                         # menggantung di bawah gripper.
+                         # HARUS sama dengan pick_place.Z_SAFE.
 Z_PARKIR = -40.0         # ketinggian SEBELUM robot dimatikan. Lengan jatuh
                          # karena gravitasi saat daya hilang — parkir rendah
                          # supaya tidak ada jarak jatuh.

@@ -33,11 +33,8 @@ import kontak
 import rnv3
 from rnv3 import RNV3, RNV3Error, check_path, check_reach
 
-PORT = "COM4"
-
 STEPS = [0.5, 1.0, 5.0, 10.0, 25.0]      # mm, dipilih tombol 1..5
 SPEEDS = [10, 20, 40, 80, 150, 250]      # mm/s, diubah tombol [ dan ]
-Z_AMAN = 100.0                           # ketinggian untuk gerak menyilang
 
 # ---------------------------------------------------------------------------
 # JOG KONTINU

@@ -37,7 +37,6 @@ from rnv3 import RNV3, RNV3Error, check_path, check_reach, xy_limits
 # KONFIGURASI  — ukur di robot nyata, lalu sesuaikan angka-angka di sini.
 # Semua satuan milimeter. Jalankan `--cek` setiap kali habis mengubahnya.
 # ===========================================================================
-PORT = "COM4"        # Windows: Device Manager > Ports. Linux/WSL: /dev/ttyUSB0
 
 # Bentuk grid. BARIS berjalan di sumbu rel (E), KOLOM di sumbu X.
 COLS = 5             # jumlah kolom (sumbu X)
@@ -53,7 +52,8 @@ E_START = 0.0        # posisi rel untuk baris pertama (0 = ujung rel)
 PITCH_E = 100.0      # jarak antar baris di rel. Rel cuma 355 mm, jadi
                      #   (ROWS-1) * PITCH_E harus <= 355
 
-Z_SAFE = 80.0        # ketinggian aman saat bergerak menyilang
+Z_SAFE = 80.0        # ketinggian aman saat bergerak menyilang.
+                     # HARUS sama dengan jalur.Z_SAFE -- dijaga oleh cek.py.
 Z_PICK = -75.0       # ketinggian saat mengambil/meletakkan benda
 
 F_FAST = 100.0       # kecepatan gerak biasa (mm/s)
