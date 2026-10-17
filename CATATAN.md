@@ -14,8 +14,13 @@ dari source code firmware**, bukan dari video — jadi bisa dipercaya.
 | `python/kontak.py` | **Kontak pertama — verifikasi robot, lengan tidak bergerak** | **jalankan paling awal** |
 | `python/jog.py` | **Gerakkan lengan pakai tombol panah, divalidasi** | **jobdesk koordinat** |
 | `python/pick_place.py` | **Pick & place grid, versi yang sudah benar** | **jobdesk koordinat** |
-| `python/cek.py` | **Cek otomatis 175 item, tanpa robot** | semua |
+| `python/cek.py` | **Cek otomatis 273 item, tanpa robot** | semua |
 | `python/simulasi.py` | Simulator firmware, buat tes offline | semua |
+| `python/jalur.py` | **Middleware: belt + kamera + lengan jadi satu alur sortir** | **integrasi** |
+| `python/kontrak.py` | Kontrak serah-terima dengan tim kamera (deteksi, piksel/mm) | **integrasi** |
+| `python/kalibrasi.py` | Homografi piksel → mm. Dipakai lewat `jalur.py --kalibrasi FILE` | **integrasi** |
+| `python/konveyor.py` | Kendali belt — mode MOSFET robot atau mode ESP32 | jobdesk sensor |
+| `python/esp.py` | Protokol ESP32 (belt + watchdog). **ESP32-nya belum ada** | jobdesk sensor |
 | `python/contoh/` | 23 contoh resmi (gripper, vakum, rel, laser, dance, lingkaran) | semua |
 | `python/contoh-v2/` | Contoh serial paling minimal & bersih — mulai baca dari sini | semua |
 | `python/contoh-pembina/` | 4 file dari pembina (pick&place, gambar, luma, dance) | **jobdesk koordinat** |
@@ -686,11 +691,19 @@ paling umum error "gagal membuka COM4".
 
 Robot bergerak untuk pertama kali. Semua lewat `jog.py` ke COM4.
 
-**Homing (`G28`)** — berhasil, mendarat tepat di nilai `INITIAL_*` config:
+**Homing (`G28`)** — robot melaporkan posisi berikut sesudah `G28`:
 
 ```
 posisi setelah homing: X=0.00  Y=217.00  Z=138.00  E=0.00
 ```
+
+> **Angka ini TIDAK membuktikan homing berhasil.** Bagian "M114 sebelum G28"
+> di bawah menyatakan sendiri bahwa firmware melaporkan tepat nilai `INITIAL_*`
+> yang sama **sebelum** `G28` dijalankan, dan itu "bukan posisi fisik lengan".
+> Jadi keluaran di atas konsisten dengan homing yang berhasil MAUPUN dengan
+> `G28` yang tidak melakukan apa-apa. Tidak ada log mentah yang disimpan, jadi
+> ini tidak bisa diperiksa ulang. Perlakukan sebagai **belum terverifikasi**
+> sampai diuji lagi sambil merekam transkrip serialnya.
 
 **Uji arah tiap sumbu** — step 5 mm, F=20, keluar lalu balik:
 
@@ -892,7 +905,7 @@ cd python
 python3 cek.py
 ```
 
-224 pemeriksaan otomatis: konstanta geometri vs `config.h`, validasi titik,
+273 pemeriksaan otomatis: konstanta geometri vs `config.h`, validasi titik,
 validasi jalur, pemeriksaan pesan boot robot, geometri grid, pagar
 `validasi_grid()`, lalu **menjalankan pick & place 20 slot penuh melawan
 simulator firmware**, plus pagar yang membuktikan `kontak.py` tidak pernah
@@ -934,7 +947,10 @@ Jadi ya — tetap harus colok robot untuk memastikan 6 hal ini:
 Lakukan **berurutan**, jangan lompat. Setiap langkah punya tombol batal.
 
 **Persiapan**
-1. Baut robot ke meja (lubang M4; rel pakai M5). Robot yang goyang = koordinat ngawur.
+1. Pastikan robot **duduk stabil** dan tidak bergeser saat lengan bergerak. Robot
+   ini **tidak dibaut** (lihat bagian "Robot tidak dibaut ke meja") karena sering
+   dipindah — jadi tahan atau klem base-nya. Kalau mau permanen, baut ke meja
+   (lubang M4; rel pakai M5). Robot yang goyang = koordinat ngawur.
 2. Kosongkan area jangkauan — radius ~34 cm dari badan robot.
 3. Colok power + USB. Nyalakan. Lampu robot kedip = mode standby, normal.
 4. Satu tangan siap di tombol power, buat matikan kalau lengan menuju benturan.
@@ -1073,7 +1089,18 @@ gripper turun, bendanya sudah pindah dari titik yang kamera laporkan.
 
 ## Integrasi — yang sudah dibangun (16 Okt 2026)
 
-Kerangkanya sudah jadi dan **sudah bisa dites penuh tanpa hardware apa pun**.
+Kerangkanya sudah jadi dan bisa dijalankan tanpa hardware lewat `--sim`.
+
+> **Sejauh mana "teruji" itu benar.** Versi pertama catatan ini mengklaim
+> "sudah bisa dites penuh tanpa hardware apa pun", padahal saat itu `cek.py`
+> hanya mengimpor `jog`, `kontak`, `pick_place`, `rnv3`, `simulasi` — lima modul
+> (`jalur`, `kontrak`, `konveyor`, `kalibrasi`, `esp`, total 2.095 baris) nol
+> cakupan, termasuk `jalur.py` yang justru satu-satunya pemberi perintah gerak.
+> Sejak 17 Okt kelimanya sudah masuk `cek.py` (273 pemeriksaan). Yang masih
+> belum: sebagian besar pemeriksaan memvalidasi kode terhadap `simulasi.py`,
+> yang ditulis dari bacaan firmware oleh penulis yang sama — jadi sebagian
+> sirkular. Hanya tabel alias perintah teks yang sudah diuji langsung lawan
+> `firmware/v2_02/command.cpp`.
 
 | File | Isi |
 |---|---|
@@ -1235,7 +1262,7 @@ naik → geser rel → gerak XY → turun.
 | 2 | 30/30 slot di luar jangkauan | `validasi_grid()` menolak jalan + kasih saran konfigurasi |
 | 3 | `pick()` tak pernah nyalakan vakum | `bot.vacuum(True)` beneran dikirim |
 | 4 | Tidak ada `place()` | `place()`, `pindah()`, `parkir()` ditambahkan |
-| 5 | Buffer serial tak pernah dikosongkan → `ok` lama dianggap jawaban baru | `RNV3.send()` baca per baris |
+| 5 | Buffer serial tak pernah dikosongkan → `ok` lama dianggap jawaban baru | `RNV3.send()` membersihkan buffer masuk saat timeout (`_timeout_error()`). **Koreksi:** catatan versi pertama menulis "baca per baris" sebagai perbaikannya — itu tidak cukup dan tidak pernah ada di kode. Barisnya memang utuh, masalahnya barisnya milik perintah yang salah. Baru benar-benar ditambal 17 Okt |
 | 6 | Retry mengirim ulang gerakan | tidak ada retry; pakai timeout + deteksi `ERROR:` |
 | 7 | `G28` hanya `sleep(5)` tanpa tunggu `ok` | `bot.home()` menunggu `ok`, timeout 90 s |
 | 8 | Port macOS | `--port COM4`, default Windows |
@@ -1371,7 +1398,9 @@ rusak daripada sekarang. Cast-nya harus dibetulkan dulu.
 
 ### Keputusan: TIDAK diubah
 
-Firmware dibiarkan **persis seperti aslinya**. Alasannya:
+Firmware dibiarkan seperti aslinya (lihat **koreksi** di bagian "SENGAJA tidak
+ditambal" di bawah — `fanControl.cpp` dan `config.h` ternyata tersentuh 15 Okt,
+walau isi `fanControl.cpp` tidak berubah). Alasannya:
 
 - Robot sekarang **jalan normal** dengan perilaku ~17 detik itu. Bug ini tidak pernah
   mengganggu siapa pun.
@@ -1424,6 +1453,31 @@ Nilai yang benar (115/155) dikonfirmasi robot sendiri saat `kontak.py` dijalanka
 File-nya **dibiarkan apa adanya**, supaya `firmware/v2_02/` tetap salinan murni versi
 GitHub dan tidak membingungkan kalau nanti dibandingkan dengan upstream.
 **Perlindungannya catatan ini, bukan tambalan.**
+
+> **Koreksi 17 Okt — klaim "salinan murni" tidak lagi bisa dibuktikan.**
+> 18 file di `firmware/v2_02/` ber-mtime `2026-10-09 14:48` (saat impor dari
+> vendor), tapi dua file lebih baru:
+>
+> ```
+> fanControl.cpp   2026-10-15 19:34
+> config.h         2026-10-15 19:45
+> ```
+>
+> Jadi kedua file itu **tersentuh pada 15 Okt**, bertentangan dengan kalimat
+> "dibiarkan apa adanya" di atas dan "persis seperti aslinya" di bagian
+> sebelumnya.
+>
+> Yang bisa dipastikan soal isinya: `fanControl.cpp` **byte-identik** di
+> ketiga varian firmware (`v2_01`, `v2_02`, `v2_01-interface`, md5
+> `199fd543a49f69e34f9a35a4794fff10`), jadi **tidak ada perubahan isi yang
+> bertahan** — kemungkinan diedit lalu dikembalikan, atau cuma dibuka-simpan.
+>
+> `config.h` **tidak bisa diverifikasi**: riwayat git upstream sudah dibuang
+> (lihat bagian terakhir catatan ini), jadi tidak ada pembanding. Selisihnya
+> terhadap `v2_02-pembina/config.h` memang sesuai yang didokumentasikan di
+> bawah, tapi itu inferensi, bukan verifikasi.
+>
+> Satu-satunya cara memulihkan jaminan ini: clone ulang repo resmi dan diff.
 
 Selama firmware tidak di-upload ulang, beda ini **tidak berefek apa pun** -- itu cuma
 teks di disk. Robot jalan dengan apa yang sudah ter-flash di chip-nya.
