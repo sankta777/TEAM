@@ -93,7 +93,7 @@ class Deteksi:
         """Salinan Deteksi ini dengan x_mm/y_mm diisi dari piksel.
 
         `kal` objek apa pun yang punya ke_mm(u, v) -- biasanya
-        kalibrasi.Kalibrasi. Sengaja duck-typing supaya kontrak.py tidak
+        kalibrasi.Kalibrasi. Sengaja duck-typing supaya kontrak_kamera.py tidak
         wajib mengimpor kalibrasi.py.
         """
         if self.punya_mm:

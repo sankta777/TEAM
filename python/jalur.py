@@ -8,7 +8,7 @@ urutan. Dia tidak tahu apa-apa soal HTTP — itu urusan lapis di atasnya.
 
     LAPIS 3  (BELUM DIBUAT)   API, WebSocket, database — rencana, bukan file
     LAPIS 2  jalur.py          <-- INI
-    LAPIS 1  rnv3 / esp / kontrak / kalibrasi
+    LAPIS 1  rnv3 / esp / kontrak_kamera / kalibrasi
     LAPIS 0  robot, ESP+konveyor, kamera
 
 Program ini yang memegang SEMUA port serial. Satu port satu pemakai — GUI resmi,
@@ -48,7 +48,7 @@ import threading
 import time
 
 import kalibrasi as mod_kalibrasi
-import kontrak
+import kontrak_kamera
 import konveyor as mod_konveyor
 import rnv3
 
@@ -365,7 +365,7 @@ class Jalur:
         self._lapor("memotret")
         try:
             deteksi = self.kamera.deteksi()
-        except kontrak.KameraError as e:
+        except kontrak_kamera.KameraError as e:
             return self._buang_siklus(Hasil.KAMERA_ERROR, f"kamera: {e}")
 
         if not deteksi:
@@ -387,7 +387,7 @@ class Jalur:
         if ditolak:
             self._kata(f"{len(ditolak)} deteksi diabaikan karena tak terjangkau")
 
-        target = kontrak.paling_dekat(bisa, x=0.0, y=BELT_Y)
+        target = kontrak_kamera.paling_dekat(bisa, x=0.0, y=BELT_Y)
         try:
             self._ambil(target)
             self._setelah_angkat()
@@ -511,7 +511,7 @@ class JalurSimulasi(Jalur):
 # PERAKITAN — satu tempat yang tahu cara menyusun semua lapisan
 # ---------------------------------------------------------------------------
 def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
-          kamera_host="127.0.0.1", kamera_port=kontrak.PORT_DEFAULT,
+          kamera_host="127.0.0.1", kamera_port=kontrak_kamera.PORT_DEFAULT,
           kalibrasi_file=None,
           verbose=True, on_status=None, kosong=0.0, jauh=0.0, seed=None):
     """Bangun Jalur lengkap. Dipakai CLI di bawah.
@@ -525,7 +525,7 @@ def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
 
     # Dimuat lebih dulu, SEBELUM port serial dibuka: file kalibrasi yang salah
     # harus gagal sebelum robot tersentuh. Tanpa file ini kamera DIANGGAP sudah
-    # mengirim milimeter robot; kalau ternyata mengirim piksel, kontrak.py akan
+    # mengirim milimeter robot; kalau ternyata mengirim piksel, kontrak_kamera.py akan
     # menolak dengan pesan yang menunjuk ke 'kalibrasi.py --sesi'.
     kal = None
     if kalibrasi_file:
@@ -537,7 +537,7 @@ def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
     if sim:
         import simulasi
         bot = simulasi.robot_palsu(verbose=False)
-        kamera = kontrak.SumberPalsu(
+        kamera = kontrak_kamera.SumberPalsu(
             z_pick=z_ambil(JENIS_DEFAULT),
             x=(-BELT_X_LEBAR, BELT_X_LEBAR), y=(BELT_Y - 15, BELT_Y + 15),
             peluang_kosong=kosong, peluang_jauh=jauh, seed=seed,
@@ -554,7 +554,7 @@ def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
     else:
         bot = rnv3.RNV3(port, verbose=False)
         penutup.append(bot.close)
-        kamera = kontrak.SumberTCP(host=kamera_host, port=kamera_port,
+        kamera = kontrak_kamera.SumberTCP(host=kamera_host, port=kamera_port,
                                    kalibrasi=kal)
         if pakai_esp:
             import esp as mod_esp
@@ -593,7 +593,7 @@ def main(argv=None):
     p.add_argument("--esp-port", default=ESP_PORT,
                    help=f"port serial ESP32 (default {ESP_PORT})")
     p.add_argument("--kamera-host", default="127.0.0.1")
-    p.add_argument("--kamera-port", type=int, default=kontrak.PORT_DEFAULT)
+    p.add_argument("--kamera-port", type=int, default=kontrak_kamera.PORT_DEFAULT)
     p.add_argument("--kalibrasi", default=None, metavar="FILE",
                    help="file kalibrasi piksel->mm hasil 'kalibrasi.py --sesi'. "
                         "WAJIB kalau kamera mengirim piksel; tidak perlu kalau "

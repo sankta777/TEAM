@@ -30,7 +30,7 @@ import jalur
 import jog as jg
 import kalibrasi
 import kontak
-import kontrak
+import kontrak_kamera
 import konveyor
 import pick_place as pp
 import rnv3
@@ -1234,7 +1234,7 @@ cek("helper _timeout_error() ada (bukan cuma komentar seperti sebelumnya)",
 # ===========================================================================
 print()
 print("=" * 68)
-print("16. kontrak.py — kontrak kamera & jembatan piksel->mm")
+print("16. kontrak_kamera.py — kontrak kamera & jembatan piksel->mm")
 print("=" * 68)
 
 # Peta piksel->mm yang SUDAH DIKETAHUI: mm_x = 0.5u - 160, mm_y = -0.5v + 360
@@ -1248,7 +1248,7 @@ _kal = kalibrasi.Kalibrasi.dari_titik(_pasangan, catatan="cek.py")
 cek("solver kalibrasi menemukan kembali homografi yang diketahui",
     _kal.galat_maks(_pasangan) < 1e-6, f"galat maks {_kal.galat_maks(_pasangan):.2e}")
 
-_d_px = kontrak.Deteksi(u_px=300.0, v_px=200.0, label="koin")
+_d_px = kontrak_kamera.Deteksi(u_px=300.0, v_px=200.0, label="koin")
 cek("Deteksi berisi piksel saja -> punya_mm False", not _d_px.punya_mm)
 _d_mm = _d_px.ke_mm(_kal)
 _want = _mm_asli(300.0, 200.0)
@@ -1257,12 +1257,12 @@ cek("dan nilainya benar terhadap peta yang diketahui",
     abs(_d_mm.x_mm - _want[0]) < 1e-6 and abs(_d_mm.y_mm - _want[1]) < 1e-6,
     f"({_d_mm.x_mm:.3f},{_d_mm.y_mm:.3f}) vs {_want}")
 
-_d_sudah = kontrak.Deteksi(x_mm=10.0, y_mm=260.0, label="koin")
+_d_sudah = kontrak_kamera.Deteksi(x_mm=10.0, y_mm=260.0, label="koin")
 cek("Deteksi yang sudah milimeter -> punya_mm True", _d_sudah.punya_mm)
 
-_bisa, _ditolak = kontrak.yang_terjangkau(
-    [kontrak.Deteksi(x_mm=9999.0, y_mm=9999.0),
-     kontrak.Deteksi(x_mm=0.0, y_mm=jalur.BELT_Y)], jalur.z_ambil("koin"))
+_bisa, _ditolak = kontrak_kamera.yang_terjangkau(
+    [kontrak_kamera.Deteksi(x_mm=9999.0, y_mm=9999.0),
+     kontrak_kamera.Deteksi(x_mm=0.0, y_mm=jalur.BELT_Y)], jalur.z_ambil("koin"))
 cek("yang_terjangkau(): benda di luar jangkauan masuk daftar ditolak",
     len(_ditolak) == 1, f"{len(_ditolak)}")
 cek("yang_terjangkau(): benda di zona ambil lolos", len(_bisa) == 1, f"{len(_bisa)}")
@@ -1271,14 +1271,14 @@ cek("dan alasan penolakannya dijelaskan, bukan diam-diam",
 
 # Deteksi yang masih piksel TIDAK BOLEH diam-diam dianggap milimeter.
 try:
-    kontrak.Deteksi(u_px=1.0, v_px=2.0).terjangkau(0.0)
+    kontrak_kamera.Deteksi(u_px=1.0, v_px=2.0).terjangkau(0.0)
     _px_jaga = "tidak melempar"
-except kontrak.KameraError as _x:
+except kontrak_kamera.KameraError as _x:
     _px_jaga = str(_x)
 cek("Deteksi piksel menolak dicek jangkauan tanpa kalibrasi",
     "piksel" in _px_jaga, _px_jaga)
-_dekat = kontrak.paling_dekat(
-    [kontrak.Deteksi(x_mm=120.0, y_mm=260.0), kontrak.Deteksi(x_mm=5.0, y_mm=260.0)],
+_dekat = kontrak_kamera.paling_dekat(
+    [kontrak_kamera.Deteksi(x_mm=120.0, y_mm=260.0), kontrak_kamera.Deteksi(x_mm=5.0, y_mm=260.0)],
     x=0.0, y=260.0)
 cek("paling_dekat() memilih yang terdekat", abs(_dekat.x_mm - 5.0) < 1e-9)
 
@@ -1287,8 +1287,8 @@ cek("paling_dekat() memilih yang terdekat", abs(_dekat.x_mm - 5.0) < 1e-9)
 import inspect as _insp
 cek("jalur.rakit() menerima kalibrasi_file (jembatan tersambung)",
     "kalibrasi_file" in _insp.signature(jalur.rakit).parameters)
-cek("kontrak.SumberTCP menerima kalibrasi",
-    "kalibrasi" in _insp.signature(kontrak.SumberTCP.__init__).parameters)
+cek("kontrak_kamera.SumberTCP menerima kalibrasi",
+    "kalibrasi" in _insp.signature(kontrak_kamera.SumberTCP.__init__).parameters)
 cek("jalur.py benar-benar mengimpor kalibrasi",
     "kalibrasi" in [m.__name__ for m in (kalibrasi,)] and
     getattr(jalur, "mod_kalibrasi", None) is kalibrasi)

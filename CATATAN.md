@@ -17,7 +17,7 @@ dari source code firmware**, bukan dari video — jadi bisa dipercaya.
 | `python/cek.py` | **Cek otomatis 273 item, tanpa robot** | semua |
 | `python/simulasi.py` | Simulator firmware, buat tes offline | semua |
 | `python/jalur.py` | **Middleware: belt + kamera + lengan jadi satu alur sortir** | **integrasi** |
-| `python/kontrak.py` | Kontrak serah-terima dengan tim kamera (deteksi, piksel/mm) | **integrasi** |
+| `python/kontrak_kamera.py` | Kontrak serah-terima dengan tim kamera (deteksi, piksel/mm) | **integrasi** |
 | `python/kalibrasi.py` | Homografi piksel → mm. Dipakai lewat `jalur.py --kalibrasi FILE` | **integrasi** |
 | `python/konveyor.py` | Kendali belt — mode MOSFET robot atau mode ESP32 | jobdesk sensor |
 | `python/esp.py` | Protokol ESP32 (belt + watchdog). **ESP32-nya belum ada** | jobdesk sensor |
@@ -1094,7 +1094,7 @@ Kerangkanya sudah jadi dan bisa dijalankan tanpa hardware lewat `--sim`.
 > **Sejauh mana "teruji" itu benar.** Versi pertama catatan ini mengklaim
 > "sudah bisa dites penuh tanpa hardware apa pun", padahal saat itu `cek.py`
 > hanya mengimpor `jog`, `kontak`, `pick_place`, `rnv3`, `simulasi` — lima modul
-> (`jalur`, `kontrak`, `konveyor`, `kalibrasi`, `esp`, total 2.095 baris) nol
+> (`jalur`, `kontrak_kamera`, `konveyor`, `kalibrasi`, `esp`, total 2.095 baris) nol
 > cakupan, termasuk `jalur.py` yang justru satu-satunya pemberi perintah gerak.
 > Sejak 17 Okt kelimanya sudah masuk `cek.py` (273 pemeriksaan). Yang masih
 > belum: sebagian besar pemeriksaan memvalidasi kode terhadap `simulasi.py`,
@@ -1104,7 +1104,7 @@ Kerangkanya sudah jadi dan bisa dijalankan tanpa hardware lewat `--sim`.
 
 | File | Isi |
 |---|---|
-| `python/kontrak.py` | Batas serah-terima kamera ↔ orkestrator. Dataclass `Deteksi`, client TCP, kamera tiruan, server tiruan |
+| `python/kontrak_kamera.py` | Batas serah-terima kamera ↔ orkestrator. Dataclass `Deteksi`, client TCP, kamera tiruan, server tiruan |
 | `python/konveyor.py` | Belt eksternal: `jalan()`, `berhenti()`, `maju_sampai_benda()`, `lewatkan_benda()` |
 | `python/jalur.py` | Orkestrator — state machine belt → sensor → kamera → lengan |
 
@@ -1112,7 +1112,7 @@ Kerangkanya sudah jadi dan bisa dijalankan tanpa hardware lewat `--sim`.
 python3 jalur.py --cek                       # validasi konfigurasi saja
 python3 jalur.py --sim --siklus 20           # full loop, tanpa hardware
 python3 jalur.py --sim --siklus 20 --kosong 0.25 --jauh 0.25   # uji cabang error
-python3 kontrak.py --port 5555               # server kamera tiruan
+python3 kontrak_kamera.py --port 5555               # server kamera tiruan
 ```
 
 ### Arsitektur
@@ -1129,7 +1129,7 @@ JSON Lines request/response:
      {"x_mm": -40.5, "y_mm": 265.0, "angle_deg": 12.0, "label": "botol", "conf": 0.92}]}
 ```
 
-Aturan yang harus disepakati tertulis ada di docstring `kontrak.py`. Intinya:
+Aturan yang harus disepakati tertulis ada di docstring `kontrak_kamera.py`. Intinya:
 koordinat dalam **mm koordinat robot** (bukan piksel), tidak ada benda =
 `{"ok": true, "objects": []}` (bukan error), dan orkestrator tetap
 `check_reach()` sebelum bergerak.
