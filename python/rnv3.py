@@ -22,6 +22,7 @@ import collections
 import math
 import re
 import time
+import warnings
 
 import serial
 
@@ -188,6 +189,11 @@ BATAS_FISIK = {
     "e_min": None, "e_maks": None,
 }
 
+# True kalau BATAS_FISIK berisi hasil ukur nyata, False kalau masih tebakan
+# konservatif di atas. Dibaca entry point supaya operator tahu gerakannya
+# divalidasi terhadap apa. Diset oleh muat_batas().
+BATAS_TERUKUR = False
+
 
 def muat_batas(berkas=None):
     """Baca batas hasil kalibrasi kalau ada. Dipanggil otomatis saat impor.
@@ -196,12 +202,15 @@ def muat_batas(berkas=None):
     didefinisikan. Kalau dipakai sebagai nilai default argumen, nilainya
     terkunci saat impor dan tidak bisa dialihkan (mis. oleh pengujian).
     """
+    global BATAS_TERUKUR
     berkas = berkas or BERKAS_BATAS
     try:
         with open(berkas, encoding="utf-8") as f:
             BATAS_FISIK.update(json.load(f))
+        BATAS_TERUKUR = True
         return True
     except (OSError, ValueError):
+        BATAS_TERUKUR = False
         return False
 
 
@@ -284,6 +293,18 @@ def check_aman(x, y, z, e=None):
 
 
 muat_batas()
+if not BATAS_TERUKUR:
+    # Dulu kegagalan ini ditelan tanpa suara, jadi setiap run diam-diam
+    # memvalidasi gerakan terhadap TEBAKAN dan tidak ada yang tahu kalibrasi
+    # belum pernah dijalankan. Peringatan ini tetap bisa dibungkam lewat
+    # warnings.filterwarnings() kalau memang disengaja.
+    warnings.warn(
+        f"batas fisik belum pernah diukur: '{os.path.basename(BERKAS_BATAS)}' "
+        f"tidak ada, jadi BATAS_FISIK memakai tebakan konservatif "
+        f"(y_min={BATAS_FISIK['y_min']:.0f}, "
+        f"rot_maks={BATAS_FISIK['rot_maks']:.0f}). Ukur di robot nyata lalu "
+        f"simpan_batas() supaya validasi memakai angka yang sebenarnya.",
+        RuntimeWarning, stacklevel=2)
 
 
 def xy_limits(z):
