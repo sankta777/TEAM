@@ -47,6 +47,7 @@ import sys
 import threading
 import time
 
+import kalibrasi as mod_kalibrasi
 import kontrak
 import konveyor as mod_konveyor
 import rnv3
@@ -511,12 +512,24 @@ class JalurSimulasi(Jalur):
 # ---------------------------------------------------------------------------
 def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
           kamera_host="127.0.0.1", kamera_port=kontrak.PORT_DEFAULT,
+          kalibrasi_file=None,
           verbose=True, on_status=None, kosong=0.0, jauh=0.0, seed=None):
     """Bangun Jalur lengkap. Dipakai CLI di bawah DAN backend.py nanti.
 
     Return (jalur, penutup) — panggil penutup() untuk menutup port.
     """
     penutup = []
+
+    # Dimuat lebih dulu, SEBELUM port serial dibuka: file kalibrasi yang salah
+    # harus gagal sebelum robot tersentuh. Tanpa file ini kamera DIANGGAP sudah
+    # mengirim milimeter robot; kalau ternyata mengirim piksel, kontrak.py akan
+    # menolak dengan pesan yang menunjuk ke 'kalibrasi.py --sesi'.
+    kal = None
+    if kalibrasi_file:
+        kal = mod_kalibrasi.Kalibrasi.muat(kalibrasi_file)
+        if verbose:
+            print(f"kalibrasi kamera dimuat dari {kalibrasi_file}")
+            print(f"  {kal.laporan()}" if hasattr(kal, "laporan") else "")
 
     if sim:
         import simulasi
@@ -538,7 +551,8 @@ def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
     else:
         bot = rnv3.RNV3(port, verbose=False)
         penutup.append(bot.close)
-        kamera = kontrak.SumberTCP(host=kamera_host, port=kamera_port)
+        kamera = kontrak.SumberTCP(host=kamera_host, port=kamera_port,
+                                   kalibrasi=kal)
         if pakai_esp:
             import esp as mod_esp
             e = mod_esp.ESP(esp_port)
@@ -577,6 +591,10 @@ def main(argv=None):
                    help=f"port serial ESP32 (default {ESP_PORT})")
     p.add_argument("--kamera-host", default="127.0.0.1")
     p.add_argument("--kamera-port", type=int, default=kontrak.PORT_DEFAULT)
+    p.add_argument("--kalibrasi", default=None, metavar="FILE",
+                   help="file kalibrasi piksel->mm hasil 'kalibrasi.py --sesi'. "
+                        "WAJIB kalau kamera mengirim piksel; tidak perlu kalau "
+                        "kamera sudah mengirim milimeter robot")
     p.add_argument("--siklus", type=int, default=0,
                    help="berapa siklus; 0 = terus sampai Ctrl-C")
     p.add_argument("--diam", action="store_true", help="kurangi cetakan")
@@ -596,6 +614,7 @@ def main(argv=None):
     jalur, tutup = rakit(
         sim=a.sim, pakai_esp=a.esp, port=a.port, esp_port=a.esp_port,
         kamera_host=a.kamera_host, kamera_port=a.kamera_port,
+        kalibrasi_file=a.kalibrasi,
         verbose=not a.diam, kosong=a.kosong, jauh=a.jauh, seed=a.seed)
 
     try:
