@@ -1,0 +1,27 @@
+#!/bin/sh
+# Tolak commit kalau cek.py gagal. Dipasang 17 Okt 2026.
+#
+# Kenapa ada: di project ini pernah tersimpan kode rusak berhari-hari tanpa
+# ada yang menyadarinya. Hook ini membuat kerusakan TIDAK BISA ter-commit
+# diam-diam -- satu-satunya penjaga di sini yang tidak butuh siapa pun sadar.
+#
+# Nonaktifkan: hapus file ini. Lewati sekali: git commit --no-verify
+
+root=$(git rev-parse --show-toplevel) || exit 1
+cd "$root/python" || exit 0
+[ -f cek.py ] || exit 0
+
+printf 'pre-commit: menjalankan cek.py ... '
+keluaran=$(python3 cek.py 2>&1)
+if [ $? -eq 0 ]; then
+    printf '%s\n' "$keluaran" | grep 'HASIL:' | sed 's/^/  /'
+    exit 0
+fi
+
+echo "GAGAL"
+printf '%s\n' "$keluaran" | grep -E '\[GAGAL\]' | head -15 | sed 's/^/  /'
+printf '%s\n' "$keluaran" | grep 'HASIL:' | sed 's/^/  /'
+echo
+echo "  COMMIT DITOLAK. Perbaiki dulu."
+echo "  (kalau memang perlu dilewati sekali: git commit --no-verify)"
+exit 1
