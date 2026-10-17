@@ -355,6 +355,11 @@ def estimate_speed(distance, firmware="v2_01"):
 # ---------------------------------------------------------------------------
 EVENT_SENSOR = re.compile(r"^(S\d)\s+(ON|OFF)$")
 
+# Jeda sebelum membuang sisa balasan setelah timeout. Memberi kesempatan baris
+# yang masih di jalan untuk tiba, supaya ikut terbuang dan tidak mengotori
+# perintah berikutnya. Lihat RNV3._timeout_error().
+SETTLE_AFTER_TIMEOUT = 0.3
+
 # Arti status sensor. Input IO1-3 active-LOW (ada pull-up di board), dan
 # firmware melaporkan keadaan pin apa adanya: pin HIGH (idle, tidak ada apa-apa
 # di depan sensor) dilaporkan "ON", pin ditarik ke ground oleh sensor NPN yang
@@ -480,6 +485,28 @@ class RNV3:
             print("!" * 68 + "\n")
 
     # -- primitif -----------------------------------------------------------
+    def _timeout_error(self, cmd, timeout):
+        """Siapkan RNV3Error timeout SETELAH membersihkan buffer masuk.
+
+        CATATAN.md sempat mengklaim masalah ini sudah ditutup oleh "send()
+        baca per baris". Itu tidak cukup: barisnya memang utuh, tapi 'ok' yang
+        datang terlambat tetap mengendap di buffer OS dan akan dibaca send()
+        BERIKUTNYA sebagai balasan perintah yang baru. Sejak saat itu setiap
+        balasan bergeser satu perintah dan tidak pernah sinkron lagi -- dan
+        robot tetap menjawab "ok", jadi tidak ada yang tampak salah.
+
+        Jeda pendek dulu supaya sisa balasan yang masih di jalan ikut terbuang,
+        bukan hanya yang sudah sampai.
+        """
+        time.sleep(SETTLE_AFTER_TIMEOUT)
+        try:
+            self.ser.reset_input_buffer()
+        except Exception:
+            # Port sudah mati -> tidak ada yang perlu dibersihkan. Error
+            # timeout-nya tetap harus naik ke pemanggil.
+            pass
+        return RNV3Error(f"timeout {timeout}s menunggu 'ok' untuk: {cmd}")
+
     def send(self, cmd, wait=True, timeout=30.0):
         """Kirim satu perintah, kumpulkan balasan sampai 'ok'.
 
@@ -498,7 +525,7 @@ class RNV3:
             raw = self.ser.readline()
             if not raw:
                 if time.monotonic() > deadline:
-                    raise RNV3Error(f"timeout {timeout}s menunggu 'ok' untuk: {cmd}")
+                    raise self._timeout_error(cmd, timeout)
                 continue
             line = raw.decode("utf-8", errors="replace").strip()
             if not line:
@@ -520,7 +547,7 @@ class RNV3:
                 error = line          # tetap tunggu 'ok', baru raise
             lines.append(line)
             if time.monotonic() > deadline:
-                raise RNV3Error(f"timeout {timeout}s menunggu 'ok' untuk: {cmd}")
+                raise self._timeout_error(cmd, timeout)
 
         if error:
             raise RNV3Error(f"{error}  (perintah: {cmd})")
