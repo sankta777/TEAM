@@ -1,0 +1,19 @@
+# Dependensi lapisan kontrol Python di folder ini.
+#
+#   pip install -r requirements.txt
+#
+# Versi dipin mengikuti interface-gui/requirements.txt milik vendor, supaya
+# satu project tidak memakai dua versi pyserial yang berbeda.
+#
+# CATATAN WSL: port serial Windows (COM*) TIDAK terlihat dari dalam WSL.
+# Jalankan script-nya dengan `python.exe`, bukan `python3` -- lihat docstring
+# rnv3.py. File-nya sendiri boleh tetap berada di filesystem WSL.
+
+pyserial==3.5
+
+# ── Opsional ──────────────────────────────────────────────────────────────
+# Hanya dibutuhkan untuk `pick_place.py --gui`. Diimpor malas di dalam
+# jalankan_gui(), dan kalau tidak ada program tetap jalan di mode terminal
+# sambil mencetak cara memasangnya. Jadi JANGAN dijadikan dependensi wajib.
+#
+#   PyQt5==5.15.9
