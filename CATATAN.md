@@ -14,7 +14,7 @@ dari source code firmware**, bukan dari video — jadi bisa dipercaya.
 | `python/kontak.py` | **Kontak pertama — verifikasi robot, lengan tidak bergerak** | **jalankan paling awal** |
 | `python/jog.py` | **Gerakkan lengan pakai tombol panah, divalidasi** | **jobdesk koordinat** |
 | `python/pick_place.py` | **Pick & place grid, versi yang sudah benar** | **jobdesk koordinat** |
-| `python/cek.py` | **Cek otomatis 273 item, tanpa robot** | semua |
+| `python/cek.py` | **Cek otomatis 318 item, tanpa robot** | semua |
 | `python/simulasi.py` | Simulator firmware, buat tes offline | semua |
 | `python/jalur.py` | **Middleware: belt + kamera + lengan jadi satu alur sortir** | **integrasi** |
 | `python/kontrak_kamera.py` | Kontrak serah-terima dengan tim kamera (deteksi, piksel/mm) | **integrasi** |
@@ -140,10 +140,11 @@ Format: string ASCII, **diakhiri `\r`**. Robot balas beberapa baris info, lalu `
 ## Jebakan
 
 Semua ini hasil baca source code, beberapa tidak disebut di video sama sekali.
-Nomor 1 bisa merusak robot secara fisik. Nomor 2 dan 3 gagalnya tidak
-kelihatan sampai hasilnya ngawur.
+Nomor 2 bisa merusak robot secara fisik (robot terguncang sampai bergeser).
+Nomor 1, 9, dan 11 gagalnya tidak kelihatan: robot tetap menjawab `ok`,
+tapi lengannya tidak sampai atau tidak bergerak sama sekali.
 
-2. **Titik tujuan valid belum menjamin gerakannya berhasil — jalurnya juga
+1. **Titik tujuan valid belum menjamin gerakannya berhasil — jalurnya juga
    harus valid.** Firmware memanggil `isAllowedPosition()` di **setiap langkah
    interpolasi** (`interpolation.cpp` ~baris 167), bukan sekali di tujuan.
 
@@ -169,7 +170,7 @@ kelihatan sampai hasilnya ngawur.
    melakukan ini di `move()`. Kalau ditolak, pecah gerakannya jadi beberapa
    langkah yang memutar lubang itu (misal naikkan Z dulu, geser, baru turun).
 
-3. **Kecepatan tinggi pada gerakan PENDEK membuat robot terguncang hebat —
+2. **Kecepatan tinggi pada gerakan PENDEK membuat robot terguncang hebat —
    sampai bergeser sendiri di meja.** Ini bukan soal motor kurang kuat.
 
    `config.h` memakai `SPEED_PROFILE 2` (kosinus). Artinya **setiap** `G0`
@@ -247,27 +248,27 @@ kelihatan sampai hasilnya ngawur.
    REAL-TIME"*. Dengan profil datar, gerakan beruntun menyambung mulus tanpa
    berhenti di antaranya. Tapi ini butuh upload ulang firmware.
 
-4. **Perintah harus diakhiri `\r`, bukan `\n`.** `Command::handleGcode()` *abaikan*
+3. **Perintah harus diakhiri `\r`, bukan `\n`.** `Command::handleGcode()` *abaikan*
    `\n` dan cuma eksekusi saat ketemu `\r`. Kalau pakai `\n`, robot diam saja
    tanpa error. Di Python: `ser.write(b"G0 X10 Y200\r")`.
 
-5. **`F` satuannya mm/s.** Kalau `F < 5` (termasuk 0 atau tidak diisi), firmware
+4. **`F` satuannya mm/s.** Kalau `F < 5` (termasuk 0 atau tidak diisi), firmware
    hitung sendiri: `sqrt(jarak) * 10` di v2_01, `sqrt(jarak) * 8` di v2_02.
    Apa pun di bawah 5 mm/s dinaikkan jadi 5. Maksimal praktis ~500.
 
-6. **Satu port serial, satu pemakai.** GUI, script Python, dan Serial Monitor
+5. **Satu port serial, satu pemakai.** GUI, script Python, dan Serial Monitor
    Arduino IDE tidak bisa pegang port bareng. Putuskan dulu salah satu — ini
    penyebab paling umum "kok nggak konek".
 
-7. **Jangan suruh gripper nutup penuh ke benda.** Servo bakal panas dan gearnya
+6. **Jangan suruh gripper nutup penuh ke benda.** Servo bakal panas dan gearnya
    rontok. Set sudutnya sesuai ukuran benda; rasakan pas mulai mencekik, berhenti
    di situ.
 
-8. **Rel + kecepatan tinggi = step hilang.** Jangan gabungkan gerakan rel (`E`)
+7. **Rel + kecepatan tinggi = step hilang.** Jangan gabungkan gerakan rel (`E`)
    dengan `X/Y/Z` ber-`F` tinggi dalam satu baris — pisahkan jadi perintah sendiri
    dengan `F` rendah/normal. Kalau step sudah hilang, `G28` lagi.
 
-9. **`config.h` beda-beda antar versi.** Sebelum upload firmware baru, cocokkan
+8. **`config.h` beda-beda antar versi.** Sebelum upload firmware baru, cocokkan
    dulu `RAIL` dan semua `INVERSE_*_STEPPER` dengan config yang lama — kalau tidak,
    arah gerakan bisa kebalik. Yang berbeda antar varian:
 
@@ -284,12 +285,17 @@ kelihatan sampai hasilnya ngawur.
    `robotGeometry.cpp` **identik** di v2_01 dan v2_02, jadi perhitungan koordinat
    dan jangkauan sama di kedua versi.
 
-10. **Setelah `M18`, posisi hilang.** Wajib `G28` lagi sebelum gerak.
+9. **Setelah `M18`, posisi hilang — dan `G0` dijawab `ok` tapi lengan DIAM.**
+   Wajib `G28` lagi sebelum gerak. Firmware tidak menyalakan stepper lagi untuk
+   `G0` (`robotRNV3_v2_02.ino:215` cuma `fan.enable(true)`); yang menyalakan
+   hanya `G28` dan `M17`. Hal yang sama berlaku **sebelum homing pertama**:
+   `setup()` mematikan semua stepper. Sejak 21 Okt `rnv3.move()` menolak gerak
+   sampai `home()`, dan `M114`/`M17` sengaja tidak membuka kuncinya.
 
-11. **Sebelum kalibrasi, geser lengan sedikit ke depan pakai tangan.** Kalau mentok
+10. **Sebelum kalibrasi, geser lengan sedikit ke depan pakai tangan.** Kalau mentok
    di endstop belakang, hasil homing kurang presisi.
 
-12. **Dengan 12V mati, robot tetap menjawab `ok` tapi lengan TIDAK bergerak.**
+11. **Dengan 12V mati, robot tetap menjawab `ok` tapi lengan TIDAK bergerak.**
    Ini kembaran jebakan nomor 1, tapi penyebabnya listrik, bukan jalur.
 
    Logic dan motor punya jalur daya **terpisah** (lihat "Arsitektur power" di bawah):
@@ -418,10 +424,13 @@ Lepas tombol atau ganti arah → kembali ke step manual 0.5 mm.
 perintah abort, jadi potongan yang sedang jalan pasti selesai. Untuk mengukur
 presisi, **tekan sekali-sekali** (0.5 mm), jangan ditahan.
 
-**Kenapa potongan dibatasi 2 mm:** firmware RNV3 **tidak punya perintah
-stop/abort**. Sekali `G0` dikirim, gerakan itu pasti selesai. Jadi "berhenti
-saat tombol dilepas" hanya bisa didekati dengan mengirim potongan kecil —
-dengan batas 2 mm, lengan berhenti dalam ~1-2 mm setelah tombol dilepas.
+**Kenapa ada sisa jalan setelah tombol dilepas:** firmware RNV3 **tidak punya
+perintah stop/abort**. Sekali `G0` dikirim, gerakan itu pasti selesai. Jadi
+"berhenti saat tombol dilepas" hanya bisa didekati dengan potongan pendek —
+dan potongan pendek justru bikin getar (jebakan nomor 2). Kompromi yang
+dipakai: tekan sekali 0.5 mm, sapuan saat ditahan maksimal 15 mm (ubah dengan
+`-` `=`). Versi lama catatan ini menulis "dibatasi 2 mm" — itu angka dari
+percobaan pertama yang sudah ditinggalkan.
 
 Saat ditahan, penekanan yang menumpuk di buffer konsol **sengaja tidak
 dikalikan** — satu potongan per putaran, sisanya dibuang. Kalau dikalikan,
@@ -450,7 +459,7 @@ tidak terbaca di terminal kamu, jalankan dari PowerShell dengan path yang sama.
 
 ```
 GERAK   tekan sekali = presisi, tahan = sapuan mulus
-  W / S   Y maju / mundur          A / D   X kiri / kanan
+  W / S   Y maju / mundur          A / D   putar badan kiri / kanan
   I / K   Z naik / turun           J / L   rel kiri / kanan
   (panah dan PgUp/PgDn tetap jalan sebagai alias)
 
@@ -476,6 +485,33 @@ LAIN
 ```
 
 Tekan `?` kapan saja untuk daftar ini.
+
+### A/D memutar badan, bukan menggeser X (21 Okt 2026)
+
+Dulu A/D menggeser **X kartesian dengan Y tetap**. Karena koordinatnya lurus,
+jarak ujung tool ke pusat putar ikut berubah, sehingga lengan atas dan bawah
+ikut menekuk/menjulur padahal yang dimaui cuma memutar badan. Dihitung dengan
+`rnv3.sudut_sendi()`: X 0 -> 100 di Y=217, Z=138 membuat radius 217 -> 239 mm
+dan sudut bahu 0 -> 9 deg.
+
+Sekarang A/D (dan panah kiri/kanan) memakai sumbu `rot` di `jog.py`: titik
+diputar mengelilingi pusat rotasi, **radius dan Z tetap**, jadi idealnya hanya
+stepper putar base yang bergerak. Step/sapuan tetap dalam mm, diukur sebagai
+panjang busur di ujung tool; pesan status menampilkan derajat putar.
+
+Firmware menginterpolasi garis lurus, jadi tiap potongan putar adalah tali
+busur yang sedikit melendut ke dalam. Potongan dibatasi supaya lendut
+<= `LENDUT_MAKS` = 0.3 mm (`busur_maks()`).
+
+Batas putar: yang kena duluan antara `rot_maks` atau `y_min` dari
+`BATAS_FISIK`. Dengan tebakan default (`y_min`=100) dan radius home 217 mm,
+putaran berhenti di ~62.5 deg, bukan 75 deg. Tombol `;` setelah A/D sekarang
+merekam `rot_maks` (simetris kiri-kanan).
+
+Bukti (`python3 cek.py`): tes "A/D: ..." mengecek radius, Z, sudut bahu, dan
+siku sepanjang tali busur yang dijalani. Uji mutasi (A/D dikembalikan ke X)
+membuat tes-tes itu GAGAL, misalnya bahu 30.00 -> 41.85 deg.
+**Belum dicoba di robot asli.**
 
 ### Kalau masih terasa menghentak
 
@@ -612,13 +648,27 @@ MENTOK = 0.3            # dianggap sudah benar-benar mentok
 
 ### Membaca baris status
 
+Selama jogging layar cuma berisi **satu baris** yang ditimpa di tempat — yang
+berganti hanya angkanya:
+
 ```
-X   12.00  Y  240.00  Z   40.00  E   0.00 | step 1 F20 | r=175.3 (90.4..263.8) sisa 88.5
+Posisi lengan  X    0.00  Y  220.00  Z  138.00  E   0.00 | Y+ maju sisa 82 <- Y +0.5
 ```
 
-- `r` = radius posisi sekarang, `sqrt((hypot(X,Y) - 77)^2 + Z^2)`
-- `(90.4..263.8)` = `R_MIN`..`R_MAX`, batas cangkang bola ruang kerja
-- `sisa` = jarak terdekat ke tepi. **Makin kecil, makin dekat mentok.**
+- `Y+ maju sisa 82` = masih 82 mm lagi ke arah yang terakhir digerakkan.
+  Berubah jadi `>>> ... sisa 8.6` saat dekat, `!!! MENTOK` saat di tepi.
+- `MOTOR RILIS` / `VAKUM` muncul kalau sedang berlaku.
+- `<- ...` = pesan aksi terakhir, hanya kalau muat di lebar terminal.
+- Setelan (step, sapuan, kehalusan, profil) tidak ikut di baris ini; tekan `?`.
+
+Dua hal yang dulu membuat tiap tekan tombol menambah 3 baris baru (terukur di
+terminal tiruan: 6× W = 18 baris, sekarang 0):
+
+1. Lalu-lintas serial (`>> G0 ...`, `<< LINEAR MOVE ...`, `<< ok`) ikut tercetak.
+   Sekarang disembunyikan selama jogging; `python.exe jog.py --ramai` untuk
+   melihatnya lagi saat debug.
+2. Baris status 120 karakter terlipat di terminal yang lebih sempit, jadi `\r`
+   gagal menimpa. Sekarang baris dipotong ke lebar terminal.
 
 Angka `sisa` itu cara paling cepat merasakan bentuk envelope robot — jog
 sambil memperhatikan dia naik-turun.
@@ -645,7 +695,8 @@ Ini gunanya buat jobdesk koordinat:
 - **Homing tidak bisa dilewati.** Membuka port serial mereset Arduino, jadi
   posisi firmware selalu hilang di awal sesi — jogging tanpa homing tidak ada
   artinya. Ada prompt konfirmasi `[y/N]` sebelum `G28`.
-- **Keluar selalu bersih**: vakum dimatikan, lengan dikembalikan ke pose home.
+- **Keluar selalu bersih**: vakum dimatikan, lengan diparkir rendah, lalu `M18`
+  (lihat "Mematikan robot setelah parkir").
 
 ---
 
@@ -667,7 +718,7 @@ diketahui:
 
 1. **Tidak ada validasi jangkauan.** Titik di luar envelope baru ditolak
    firmware setelah dikirim.
-3. **Slider-nya tidak realtime.** Dari source-nya
+2. **Slider-nya tidak realtime.** Dari source-nya
    (`interface-gui/Ruskomponen_BOT_BLK.py` baris 3123):
    ```python
    self.horizontalSlider_X.sliderReleased.connect(update_doubleSpinBox_and_send_gcode)
@@ -905,7 +956,7 @@ cd python
 python3 cek.py
 ```
 
-273 pemeriksaan otomatis: konstanta geometri vs `config.h`, validasi titik,
+318 pemeriksaan otomatis: konstanta geometri vs `config.h`, validasi titik,
 validasi jalur, pemeriksaan pesan boot robot, geometri grid, pagar
 `validasi_grid()`, lalu **menjalankan pick & place 20 slot penuh melawan
 simulator firmware**, plus pagar yang membuktikan `kontak.py` tidak pernah
@@ -1096,7 +1147,7 @@ Kerangkanya sudah jadi dan bisa dijalankan tanpa hardware lewat `--sim`.
 > hanya mengimpor `jog`, `kontak`, `pick_place`, `rnv3`, `simulasi` — lima modul
 > (`jalur`, `kontrak_kamera`, `konveyor`, `kalibrasi`, `esp`, total 2.095 baris) nol
 > cakupan, termasuk `jalur.py` yang justru satu-satunya pemberi perintah gerak.
-> Sejak 17 Okt kelimanya sudah masuk `cek.py` (273 pemeriksaan). Yang masih
+> Sejak 17 Okt kelimanya sudah masuk `cek.py` (sekarang 318 pemeriksaan). Yang masih
 > belum: sebagian besar pemeriksaan memvalidasi kode terhadap `simulasi.py`,
 > yang ditulis dari bacaan firmware oleh penulis yang sama — jadi sebagian
 > sirkular. Hanya tabel alias perintah teks yang sudah diuji langsung lawan
@@ -1126,13 +1177,13 @@ JSON Lines request/response:
 ```
 → {"cmd": "detect"}
 ← {"ok": true, "ts": 1792047037.1, "objects": [
-     {"x_mm": -40.5, "y_mm": 265.0, "angle_deg": 12.0, "label": "botol", "conf": 0.92}]}
+     {"x_mm": -40.5, "y_mm": 265.0, "angle_deg": 12.0, "label": "tutup_botol", "conf": 0.92}]}
 ```
 
 Aturan yang harus disepakati tertulis ada di docstring `kontrak_kamera.py`. Intinya:
 koordinat dalam **mm koordinat robot** (bukan piksel), tidak ada benda =
 `{"ok": true, "objects": []}` (bukan error), dan orkestrator tetap
-`check_reach()` sebelum bergerak.
+`check_aman()` sebelum bergerak.
 
 **Kalibrasi kamera itu kerjaan bersama**, bukan kelompok kamera sendirian:
 robot harus disuruh ke ≥4 titik yang diketahui dengan marker di ujung gripper,
@@ -1183,6 +1234,47 @@ seperti sensor rusak.
 
 **Tata letak** — robot, belt, dan tiang kamera di satu permukaan kaku yang sama.
 Zona ambil harus dalam jangkauan: di `Y=260, Z_SAFE=80`, X aman cuma −180..180.
+
+---
+
+## Perbaikan 21 Okt 2026 — hasil review, tanpa robot
+
+Semua dikerjakan dan diuji di simulator (robot ada di tempat magang). Tiap
+perbaikan punya tes di `cek.py` bagian 19, dan tesnya **sudah dibuktikan bisa
+gagal**: keenam file kode yang diperbaiki (`rnv3`, `kontrak_kamera`, `jalur`,
+`esp`, `pick_place`, `jog`) dikembalikan ke versi sebelumnya satu per satu, dan
+setiap kali tes yang bersangkutan memang merah.
+
+| # | Masalah | Perbaikan |
+|---|---|---|
+| 1 | Saringan deteksi kamera (`Deteksi.terjangkau`) cuma `check_reach`, sedangkan `move()` pakai `check_aman`. Benda di misalnya `(-250, 60)` lolos saringan lalu ditolak `move()`; cabang `ROBOT_ERROR` tidak menggeser benda, jadi `jalur.py` mengulang benda yang sama **selamanya** (terbukti: 10/10 siklus gagal) | Saringan, `validasi_konfigurasi()`, dan `validasi_grid()` sekarang `check_aman` — sama ketatnya dengan `move()` |
+| 2 | Gerakan yang gagal tidak pernah ditangani: lini lanjut walau posisi lengan tidak diketahui atau benda sedang digenggam | `Jalur._gerakan_gagal()`: kalau ditolak sebelum dikirim dan benda belum terangkat → vakum off, gripper naik ke `Z_SAFE`, benda didorong lewat, lini lanjut. Selain itu → **lini dihentikan** |
+| 3 | Setelah `M18` (dan sebelum homing pertama), `move()` tetap diterima Python padahal firmware tidak menyalakan stepper untuk `G0`. Contoh: `pick_place.py` interaktif, `k` lalu `7` → pick "berhasil", lengan diam | Flag `RNV3.butuh_home`: diset oleh `M18` dan saat tersambung, hanya dibuka `home()`. Simulator sekarang meniru ini (`sim.gerak_tanpa_motor`), makanya dulu `cek.py` tidak bisa menangkapnya |
+| 4 | `selesai()` di `jalur.py` menurunkan lengan ke `Z=-40` **di tempat**. Setelah siklus sukses, tempat itu di atas bak — tepat di atas botol yang baru ditaruh (puncaknya `Z=+70`) | Parkir di `PARKIR_XY = (0, 217)`: naik ke `Z_SAFE`, geser XY, baru turun. Jalurnya ikut divalidasi |
+| 5 | Label `"botol"`, padahal model kamera mengirim `"tutup_botol"` → botol diperlakukan sebagai koin (tinggi 2 mm, bak koin) | `JENIS["tutup_botol"]` |
+| 6 | `esp.py` belum punya tambalan buffer basi yang sudah ada di `rnv3.py` | `ESP._timeout_error()` membersihkan buffer masuk saat timeout |
+| 7 | `pick_place.py --gui` tidak parkir setelah jendela ditutup | Diparkir + `M18` seperti mode lain |
+| 8 | `pick_place.py`: `parkir()` kedua kali (setelah `k`) gagal; tidak ada cara kalibrasi ulang | `parkir()` melewati diri kalau motor sudah mati; perintah baru `c` = kalibrasi |
+| 9 | `jog.py`: setelah `R` lalu `C`, status tetap "MOTOR RILIS" | `C` mengembalikan status motor |
+
+### Yang BELUM terbukti — cek di tempat magang
+
+- **Perilaku `G0` setelah `M18`** disimpulkan dari **membaca** firmware, belum
+  dicoba. Cara cek aman, pakai **GUI resmi saja** (jangan bareng `jog.py` —
+  satu port satu pemakai): Kalibrasi, Motor off, lalu ketik `G0 Z130` di input
+  perintah manual. Lengan harus **diam** walau dibalas `ok`. (`rnv3.py`
+  sekarang menolak duluan, jadi tes ini cuma memastikan alasannya benar.)
+- **`PARKIR_XY = (0, 217)`** harus titik yang di bawahnya **kosong** (bukan
+  belt, bukan bak). Belum ada yang mengukur tata letak aslinya.
+- **Tinggi `tutup_botol` = 150 mm** masih angka lama — ukur dari belt ke
+  permukaan tutup botol yang berdiri.
+
+### Catatan kecil firmware (tidak diubah)
+
+`case 0: case 1:` di `executeCommand()` (`robotRNV3_v2_02.ino:213-221`) tidak
+punya `break`, jadi setiap `G0` ikut menjalankan `cmdDwell()`. Tidak berbahaya:
+`valueS` default 0 (`command.cpp:12`), jadi `delay(0)`. Baru berefek kalau
+seseorang mengirim `G0 ... S2` — lengan baru mulai jalan setelah 2 detik.
 
 ---
 
@@ -1258,7 +1350,7 @@ naik → geser rel → gerak XY → turun.
 
 | | Masalah | Perbaikan |
 |---|---|---|
-| 1 | `validate()` pakai batas kotak | `check_reach()` + `check_path()` dari `rnv3.py` |
+| 1 | `validate()` pakai batas kotak | `check_aman()` + `check_path()` dari `rnv3.py` (sampai 21 Okt `check_reach()`, lebih longgar dari `move()`) |
 | 2 | 30/30 slot di luar jangkauan | `validasi_grid()` menolak jalan + kasih saran konfigurasi |
 | 3 | `pick()` tak pernah nyalakan vakum | `bot.vacuum(True)` beneran dikirim |
 | 4 | Tidak ada `place()` | `place()`, `pindah()`, `parkir()` ditambahkan |

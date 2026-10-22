@@ -411,6 +411,12 @@ class RNV3:
         self.x, self.y, self.z, self.e = HOME_X, HOME_Y, HOME_Z, HOME_E
         self.relative = False
         self.position_known = True
+        # Stepper MATI sampai G28: setup() firmware memanggil
+        # setStepperEnable(false), dan yang menyalakannya lagi hanya
+        # Endstop::home() (endstop.cpp) atau M17. G0 sendiri cuma menyalakan
+        # kipas (robotRNV3_v2_02.ino:215) -- jadi G0 dengan stepper mati
+        # dijawab 'ok' tapi lengan DIAM. Lihat move().
+        self.butuh_home = True
         self.firmware = "v2_01"
         self.boot_lines = []
         self.servo_range_reported = None
@@ -602,6 +608,7 @@ class RNV3:
         self.x, self.y, self.z, self.e = HOME_X, HOME_Y, HOME_Z, HOME_E
         self.relative = False
         self.position_known = True
+        self.butuh_home = False        # G28 menyalakan semua stepper
         self._origin_shifted = False   # G28 mereset offset G92 di firmware
 
     def move(self, x=None, y=None, z=None, e=None, f=None, check=True):
@@ -616,6 +623,14 @@ class RNV3:
         Sumbu yang digerakkan dalam satu perintah jalan BERSAMAAN (interpolasi
         linear), jadi urutan huruf di string tidak berpengaruh.
         """
+        # Dicek di luar `check`: ini bukan soal jangkauan, tapi soal gerakan
+        # yang dijawab 'ok' padahal tidak pernah terjadi.
+        if self.butuh_home:
+            raise RNV3Error(
+                "stepper mati (belum homing, atau sudah M18) -- firmware akan "
+                "menjawab 'ok' untuk G0 tapi lengan TIDAK bergerak. Jalankan "
+                "home() (G28) dulu.")
+
         tx = self.x if x is None else (self.x + x if self.relative else x)
         ty = self.y if y is None else (self.y + y if self.relative else y)
         tz = self.z if z is None else (self.z + z if self.relative else z)
@@ -818,9 +833,15 @@ class RNV3:
     def steppers(self, on):
         """M17 / M18 — enable/disable stepper.
 
-        Setelah M18, posisi hilang: wajib home() lagi.
+        Setelah M18, posisi hilang: wajib home() lagi. Dan move() memang
+        menolak sampai home(): firmware tidak menyalakan stepper lagi untuk
+        G0, jadi gerakan sesudah M18 dijawab 'ok' tapi lengan diam. M17 tidak
+        memulihkan ini -- motor menyala lagi, tapi lengan sudah loyo dan
+        posisinya tidak bisa dipercaya.
         """
         self.send("M17" if on else "M18")
+        if not on:
+            self.butuh_home = True
 
     def fan(self, on):
         """M106 / M107 — kipas."""

@@ -1,6 +1,6 @@
 """
-Jog manual robot RNV3 — gerakkan lengan pakai WASD (bidang XY) dan IJKL
-(Z + rel). Tombol panah tetap jalan sebagai alias.
+Jog manual robot RNV3 — A/D memutar badan, W/S maju-mundur, IJKL untuk
+Z + rel. Tombol panah tetap jalan sebagai alias.
 
 Bedanya dengan GUI resmi: setiap gerakan DIVALIDASI SEBELUM dikirim, pakai
 check_reach() + check_path() dari rnv3.py yang mereplika isAllowedPosition()
@@ -26,6 +26,7 @@ firmware selalu hilang di awal sesi; jogging tanpa homing tidak ada artinya.
 import argparse
 import math
 import os
+import shutil
 import sys
 import time
 
@@ -142,21 +143,21 @@ JEDA_TAHAN = 0.25
 
 # token tombol -> (sumbu, arah)
 ARAH = {
-    # tangan kiri: WASD -> bidang XY
-    "a": ("x", -1), "d": ("x", +1),
+    # tangan kiri: A/D PUTAR badan (radius & Z tetap), W/S maju-mundur Y
+    "a": ("rot", -1), "d": ("rot", +1),
     "w": ("y", +1), "s": ("y", -1),
     # tangan kanan: IJKL -> Z dan rel
     "i": ("z", +1), "k": ("z", -1),
     "j": ("e", -1), "l": ("e", +1),
     # alias lama supaya tidak ada yang hilang
-    "KIRI": ("x", -1), "KANAN": ("x", +1),
+    "KIRI": ("rot", -1), "KANAN": ("rot", +1),
     "ATAS": ("y", +1), "BAWAH": ("y", -1),
     "PGUP": ("z", +1), "PGDN": ("z", -1),
 }
 
 BANTUAN = """
   GERAK   tekan sekali = presisi, tahan = sapuan mulus
-    W / S   Y maju / mundur          A / D   X kiri / kanan
+    W / S   Y maju / mundur          A / D   putar badan kiri / kanan
     I / K   Z naik / turun           J / L   rel kiri / kanan
     (panah dan PgUp/PgDn tetap jalan)
 
@@ -186,10 +187,49 @@ BANTUAN = """
 DEKAT_BATAS = 25.0      # mulai memperingatkan
 MENTOK = 0.3            # dianggap sudah benar-benar mentok
 
-NAMA_ARAH = {("x", 1): "X+ kanan", ("x", -1): "X- kiri",
+NAMA_ARAH = {("rot", 1): "putar kanan", ("rot", -1): "putar kiri",
+             ("x", 1): "X+ kanan", ("x", -1): "X- kiri",
              ("y", 1): "Y+ maju", ("y", -1): "Y- mundur",
              ("z", 1): "Z+ naik", ("z", -1): "Z- turun",
              ("e", 1): "E+ rel kanan", ("e", -1): "E- rel kiri"}
+
+
+# A/D dulu menggeser X kartesian dengan Y tetap. Akibatnya radius ujung tool
+# ikut berubah (X 0 -> 100 di Y 217: radius 217 -> 239 mm, bahu 0 -> 9 deg),
+# jadi lengan atas & bawah ikut menekuk/menjulur padahal yang dimaui cuma
+# memutar badan. Sumbu "rot" memutar titik mengelilingi pusat rotasi dengan
+# radius dan Z tetap -- yang bergerak cuma stepper putar base.
+#
+# Firmware menginterpolasi GARIS LURUS, jadi satu G0 memotong tali busur, dan
+# di tengahnya radius sedikit lebih pendek: lendut = r * (1 - cos(dphi/2)).
+# Potongan putar dibatasi supaya lendut itu tidak lebih dari angka ini.
+LENDUT_MAKS = 0.3       # mm
+
+
+def geser(x, y, z, e, sumbu, arah, t):
+    """Titik (x, y, z, e) setelah bergerak t mm ke arah sumbu/arah.
+
+    Untuk "rot", t adalah panjang busur di ujung tool; positif = putar ke
+    kanan (X+), sama seperti arah X lama.
+    """
+    if sumbu == "rot":
+        r = math.hypot(x, y)
+        if r == 0:
+            return x, y, z, e
+        phi = math.atan2(x, y) + arah * t / r
+        return r * math.sin(phi), r * math.cos(phi), z, e
+    titik = {"x": x, "y": y, "z": z, "e": e}
+    titik[sumbu] += arah * t
+    return titik["x"], titik["y"], titik["z"], titik["e"]
+
+
+def busur_maks(x, y, lendut=LENDUT_MAKS):
+    """Busur terpanjang (mm) satu G0 putar supaya tali busurnya melendut
+    paling banyak `lendut` mm dari lingkaran."""
+    r = math.hypot(x, y)
+    if r <= lendut:
+        return 0.0
+    return r * 2 * math.acos(1 - lendut / r)
 
 
 def jarak_tersisa(x, y, z, e, sumbu, arah, maks=400.0):
@@ -203,12 +243,8 @@ def jarak_tersisa(x, y, z, e, sumbu, arah, maks=400.0):
     Dipindai maju 1 mm lalu dihaluskan dengan bagi-dua. Murni hitungan, tidak
     menyentuh robot.
     """
-    titik = {"x": x, "y": y, "z": z, "e": e}
-
     def valid(t):
-        u = dict(titik)
-        u[sumbu] += arah * t
-        return rnv3.check_aman(u["x"], u["y"], u["z"], u["e"])[0]
+        return rnv3.check_aman(*geser(x, y, z, e, sumbu, arah, t))[0]
 
     if not valid(0.0):
         return 0.0
@@ -228,6 +264,14 @@ def jarak_tersisa(x, y, z, e, sumbu, arah, maks=400.0):
         else:
             hi = tengah
     return round(lo, 2)
+
+
+def lebar_terminal():
+    """Lebar terminal dikurangi 1 kolom, supaya kursor tidak memicu lipatan.
+
+    Dipisah jadi fungsi supaya cek.py bisa menirukan terminal sempit.
+    """
+    return max(20, shutil.get_terminal_size((80, 20)).columns - 1)
 
 
 # ===========================================================================
@@ -348,25 +392,37 @@ class Jog:
 
     # -- tampilan ----------------------------------------------------------
     def cetak_status(self, di_tempat=False):
-        """Cetak baris status. di_tempat=True menimpa baris yang sama (jog
-        kontinu jadi tidak membanjiri layar)."""
+        """Cetak baris status. di_tempat=True menimpa baris yang sama, jadi
+        selama jogging layar cuma berisi SATU kalimat yang angkanya berganti.
+
+        Baris dipotong ke lebar terminal: baris yang terlipat membuat '\\r'
+        hanya kembali ke awal potongan terakhir, dan setiap gerakan jadi
+        tampak sebagai baris baru. Sengaja tanpa kode ANSI supaya aman di
+        python.exe dari terminal WSL maupun di PowerShell.
+        """
         baris = self.status()
-        if self.pesan:
-            baris += f"   <- {self.pesan}"
-        if di_tempat:
-            print("\r" + baris.ljust(120)[:120], end="", flush=True)
-        else:
-            print(baris)
+        if not di_tempat:
+            print(baris + (f"   <- {self.pesan}" if self.pesan else ""))
+            return
+        lebar = lebar_terminal()
+        # Pesan cuma ditempel kalau muat utuh, atau dipotong rapi dengan '..'
+        # kalau ruangnya masih layak -- bukan terpenggal jadi "<- Y".
+        ruang = lebar - len(baris) - len(" <- ")
+        if self.pesan and ruang >= len(self.pesan):
+            baris += f" <- {self.pesan}"
+        elif self.pesan and ruang >= 12:
+            baris += f" <- {self.pesan[:ruang - 2]}.."
+        print("\r" + baris[:lebar].ljust(lebar), end="", flush=True)
 
     def status(self):
+        """Satu kalimat: koordinat di depan, lalu penanda yang sedang berlaku.
+
+        Setelan (step, sapuan, kehalusan, profil) tidak ikut di sini karena
+        jarang berubah -- lihat setelan(), dicetak tombol '?'.
+        """
         b = self.bot
-        r = math.sqrt((math.hypot(b.x, b.y) - rnv3.EE_OFFSET) ** 2
-                      + b.z ** 2)
-        sisa = min(rnv3.R_MAX - r, r - rnv3.R_MIN)
-        s = (f"X {b.x:7.2f} Y {b.y:7.2f} Z {b.z:7.2f} E {b.e:6.2f} | "
-             f"step {self.step:<4g} sapuan {self.sapuan:<4g} "
-             f"a{self.a_target:<4g} {NAMA_PROFIL[self.profil]:<7} | "
-             f"sisa {sisa:.1f}")
+        s = (f"Posisi lengan  X {b.x:7.2f}  Y {b.y:7.2f}  "
+             f"Z {b.z:7.2f}  E {b.e:6.2f}")
         if self.sisa_arah:
             nama, d = self.sisa_arah
             if d < MENTOK:
@@ -374,14 +430,18 @@ class Jog:
             elif d < DEKAT_BATAS:
                 s += f" | >>> {nama} sisa {d:.1f}"
             else:
-                s += f" | {nama} {d:.0f}"
+                s += f" | {nama} sisa {d:.0f}"
         if not self.motor_terkunci:
             s += " | MOTOR RILIS"
-        if self.sp_dipakai:
-            s += f" | F{self.sp_dipakai:.3g}"
         if self.vakum:
             s += " | VAKUM"
         return s
+
+    def setelan(self):
+        """Setelan jog yang sedang aktif, untuk dicetak sesekali."""
+        return (f"setelan: step {self.step:g} mm | sapuan {self.sapuan:g} mm | "
+                f"kehalusan a={self.a_target:g} mm/s2 | "
+                f"profil {NAMA_PROFIL[self.profil]}")
 
     # -- profil kecepatan --------------------------------------------------
     def pakai_profil(self, profil):
@@ -456,6 +516,13 @@ class Jog:
             self.lepas_tahan()
             return False
 
+        if sumbu == "rot":
+            # Satu G0 putar = tali busur. Pendekkan supaya lengan tidak ikut
+            # menekuk di tengah potongan (lihat LENDUT_MAKS).
+            bm = busur_maks(self.bot.x, self.bot.y)
+            if st * ulang > bm:
+                st, ulang = bm, 1
+
         minta = st * ulang
         dijepit = minta > sisa - 0.05
         if dijepit:
@@ -473,9 +540,10 @@ class Jog:
         if not self.kasar and sp > batas:
             sp = batas
             self.sp_dipakai = sp
-        target = {"x": self.bot.x, "y": self.bot.y,
-                  "z": self.bot.z, "e": self.bot.e}
-        target[sumbu] += delta
+        tx, ty, tz, te = geser(self.bot.x, self.bot.y, self.bot.z,
+                               self.bot.e, sumbu, arah, abs(delta))
+        target = {"x": tx, "y": ty, "z": tz, "e": te}
+        sudut_awal = math.degrees(math.atan2(self.bot.x, self.bot.y))
 
         ok, why = check_reach(target["x"], target["y"], target["z"], target["e"])
         if not ok:
@@ -490,7 +558,10 @@ class Jog:
             return False
 
         try:
-            self.bot.move(**{sumbu: target[sumbu]}, f=sp)
+            if sumbu == "rot":
+                self.bot.move(x=target["x"], y=target["y"], f=sp)
+            else:
+                self.bot.move(**{sumbu: target[sumbu]}, f=sp)
         except RNV3Error as err:
             self.pesan = f"ditolak: {err}"
             self.lepas_tahan()
@@ -499,7 +570,11 @@ class Jog:
         sisa_baru = jarak_tersisa(self.bot.x, self.bot.y, self.bot.z,
                                   self.bot.e, sumbu, arah)
         self.sisa_arah = (nama, sisa_baru)
-        self.pesan = f"{sumbu.upper()} {delta:+.3g}"
+        if sumbu == "rot":
+            putar = math.degrees(math.atan2(self.bot.x, self.bot.y)) - sudut_awal
+            self.pesan = f"putar {putar:+.2f} deg"
+        else:
+            self.pesan = f"{sumbu.upper()} {delta:+.3g}"
         if dijepit:
             self.pesan += f"  (dipendekkan, mepet batas {nama})"
         if sisa_baru < MENTOK:
@@ -569,11 +644,15 @@ class Jog:
             self.pesan = "gerakkan dulu ke arah yang mau dibatasi, baru tekan ;"
             return False
         nama = self.sisa_arah[0]
-        sumbu = nama[0].lower()
-        arah = +1 if "+" in nama else -1
-        nilai = {"x": self.bot.x, "y": self.bot.y,
-                 "z": self.bot.z, "e": self.bot.e}[sumbu]
-        kunci = f"{sumbu}_{'maks' if arah > 0 else 'min'}"
+        sumbu, arah = next(k for k, v in NAMA_ARAH.items() if v == nama)
+        if sumbu == "rot":
+            # BATAS_FISIK hanya punya satu batas putar, simetris kiri-kanan.
+            nilai = abs(math.degrees(math.atan2(self.bot.x, self.bot.y)))
+            kunci = "rot_maks"
+        else:
+            nilai = {"x": self.bot.x, "y": self.bot.y,
+                     "z": self.bot.z, "e": self.bot.e}[sumbu]
+            kunci = f"{sumbu}_{'maks' if arah > 0 else 'min'}"
         rnv3.BATAS_FISIK[kunci] = round(nilai, 1)
         berkas = rnv3.simpan_batas()
         print(f"\n  batas direkam: {kunci} = {nilai:.1f}")
@@ -736,11 +815,15 @@ class Jog:
         if token == "c":
             print("\n  kalibrasi ulang (G28) ...")
             self.bot.home()
+            # G28 menyalakan semua stepper (Endstop::home), jadi status
+            # "MOTOR RILIS" dari R sebelumnya tidak berlaku lagi.
+            self.motor_terkunci = True
             self.pesan = "kalibrasi selesai"
             return True
 
         if token == "?":
             print(BANTUAN)
+            print(f"  {self.setelan()}\n")
             return True
 
         if token in ("q", "ESC", "\x03"):
@@ -849,7 +932,13 @@ def main(argv=None):
     ap.add_argument("--port", default=None,
                     help="port serial; kosongkan untuk deteksi otomatis")
     ap.add_argument("--sim", action="store_true", help="simulator, tanpa robot")
-    ap.add_argument("--diam", action="store_true", help="sembunyikan lalu-lintas serial")
+    ap.add_argument("--diam", action="store_true",
+                    help="sembunyikan lalu-lintas serial sejak awal (juga saat "
+                         "menyambung dan homing)")
+    ap.add_argument("--ramai", action="store_true",
+                    help="tetap tampilkan lalu-lintas serial (>> G0 / << ok) "
+                         "selama jogging. Bawaannya disembunyikan supaya layar "
+                         "cuma berisi satu baris status.")
     ap.add_argument("--urutan", help="jalankan token tombol ini lalu keluar "
                                      "(untuk uji otomatis, mis. 'KANAN PGDN p q')")
     ap.add_argument("--kasar", action="store_true",
@@ -904,6 +993,12 @@ def main(argv=None):
               f"Z={p['z']:.2f} E={p['e']:.2f}")
         print("\nPeriksa dengan mata: lengan bawah TEGAK, lengan atas HORIZONTAL.")
         print("Kalau miring, X_HOME_STEPS / Y_HOME_STEPS di config.h perlu disetel.")
+
+        # Mulai dari sini lalu-lintas serial disembunyikan: tiap gerakan
+        # mencetak '>> G0', '<< LINEAR MOVE', '<< ok' sebagai baris baru dan
+        # memecah baris status yang mestinya diam di tempat.
+        if not a.ramai:
+            bot.verbose = False
 
         jog = Jog(bot)
         jog.kontinu = not a.diskret

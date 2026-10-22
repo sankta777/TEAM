@@ -73,9 +73,15 @@ BELT_X_LEBAR = 150.0     # setengah lebar zona ambil yang dipakai kamera
 # Tiap jenis benda punya tinggi dan bak sendiri. Tinggi dipakai menghitung
 # sampai mana gripper harus turun — suction cup menempel di PERMUKAAN ATAS
 # benda, bukan di permukaan belt.
+#
+# Kunci HARUS sama persis dengan label yang dikirim model kamera. Kelompok
+# kamera memakai "tutup_botol" dan "koin"; label yang tidak dikenal jatuh ke
+# JENIS_DEFAULT, jadi salah eja di sini = botol diperlakukan sebagai koin.
+# "tutup_botol" = botol BERDIRI, vakum menempel di tutupnya -> tinggi diukur
+# dari belt ke permukaan tutup (~150 mm, UKUR ULANG dengan botol aslinya).
 JENIS = {
-    "botol": {"tinggi": 150.0, "taruh": (-170.0, 215.0)},
-    "koin":  {"tinggi": 2.0,   "taruh": (-55.0, 300.0)},
+    "tutup_botol": {"tinggi": 150.0, "taruh": (-170.0, 215.0)},
+    "koin":        {"tinggi": 2.0,   "taruh": (-55.0, 300.0)},
 }
 JENIS_DEFAULT = "koin"   # dipakai kalau label dari kamera tidak dikenal
 
@@ -90,6 +96,11 @@ Z_SAFE = 80.0            # ketinggian jelajah dasar untuk gripper KOSONG.
 Z_PARKIR = -40.0         # ketinggian SEBELUM robot dimatikan. Lengan jatuh
                          # karena gravitasi saat daya hilang — parkir rendah
                          # supaya tidak ada jarak jatuh.
+PARKIR_XY = (0.0, 217.0) # tempat lengan turun ke Z_PARKIR. Sama dengan
+                         # jog.PARKIR dan pick_place.parkir(). WAJIB titik
+                         # yang di bawahnya KOSONG -- bukan di atas bak (botol
+                         # yang baru ditaruh tingginya sampai Z=+70) dan bukan
+                         # di atas belt. Cek dengan mata di lokasi.
 
 F_FAST = 100.0           # gerak jelajah
 F_SLOW = 30.0            # turun/naik dekat benda — pelan = presisi
@@ -165,10 +176,12 @@ def validasi_konfigurasi(cetak=True):
     Return list masalah (kosong = aman).
     """
     masalah = []
+    px, py = PARKIR_XY
     titik = [
         ("zona ambil kiri @aman",  -BELT_X_LEBAR, BELT_Y, Z_SAFE),
         ("zona ambil kanan @aman",  BELT_X_LEBAR, BELT_Y, Z_SAFE),
-        ("parkir",                  0.0, BELT_Y, Z_PARKIR),
+        ("parkir @aman",            px, py, Z_SAFE),
+        ("parkir",                  px, py, Z_PARKIR),
     ]
     for label in JENIS:
         tx, ty = profil(label)["taruh"]
@@ -183,10 +196,25 @@ def validasi_konfigurasi(cetak=True):
             (f"bak {label} @jelajah",          tx, ty, z_jelajah(label)),
         ]
 
+    # check_aman, bukan check_reach: harus sama dengan yang dipakai move().
+    # Kalau validasi lebih longgar dari move(), konfigurasi "OK" di sini bisa
+    # tetap ditolak saat berjalan.
     for nama, x, y, z in titik:
-        ok, alasan = rnv3.check_reach(x, y, z)
+        ok, alasan = rnv3.check_aman(x, y, z)
         if not ok:
             masalah.append(f"{nama} (X{x:.0f} Y{y:.0f} Z{z:.0f}): {alasan}")
+
+    # Jalur yang ditempuh selesai(): dari mana pun ke atas titik parkir di
+    # Z_SAFE, lalu turun lurus.
+    for nama, x, y in [("zona ambil kiri", -BELT_X_LEBAR, BELT_Y),
+                       ("zona ambil kanan", BELT_X_LEBAR, BELT_Y)] + [
+            (f"bak {label}", *profil(label)["taruh"]) for label in JENIS]:
+        ok, alasan, _ = rnv3.check_path((x, y, Z_SAFE), (px, py, Z_SAFE))
+        if not ok:
+            masalah.append(f"jalur {nama} -> parkir: {alasan}")
+    ok, alasan, _ = rnv3.check_path((px, py, Z_SAFE), (px, py, Z_PARKIR))
+    if not ok:
+        masalah.append(f"jalur turun ke parkir: {alasan}")
 
     # Jalur menyilang terjauh: ujung belt -> tiap bak, pada tinggi genggaman
     # yang BENAR-BENAR dipakai (z_jelajah, bukan Z_SAFE). check_path
@@ -388,17 +416,52 @@ class Jalur:
             self._kata(f"{len(ditolak)} deteksi diabaikan karena tak terjangkau")
 
         target = kontrak_kamera.paling_dekat(bisa, x=0.0, y=BELT_Y)
+        terangkat = False
         try:
             self._ambil(target)
+            terangkat = True
             self._setelah_angkat()
             self._taruh(target)
         except rnv3.RNV3Error as e:
-            self._kata(f"GERAKAN GAGAL: {e}")
-            self._lapor("robot error", hasil_terakhir=Hasil.ROBOT_ERROR)
-            return Hasil.ROBOT_ERROR
+            return self._gerakan_gagal(e, terangkat)
 
         self.hitungan[target.label] = self.hitungan.get(target.label, 0) + 1
         return Hasil.SUKSES
+
+    def _gerakan_gagal(self, err, terangkat):
+        """Putuskan nasib lini setelah gerakan lengan gagal.
+
+        Dulu cabang ini cuma mengembalikan ROBOT_ERROR. Benda masih di depan
+        sensor, jadi siklus berikutnya langsung melihat benda yang SAMA, gagal
+        dengan cara yang sama, dan berulang selamanya tanpa belt bergerak.
+
+        Dua kemungkinan:
+          - Lengan masih di posisi yang diketahui dan benda belum terangkat
+            (gerakan ditolak Python SEBELUM dikirim) -> lepas vakum, angkat
+            gripper dari belt, lalu dorong bendanya lewat seperti cabang skip
+            yang lain. Lini jalan terus.
+          - Posisi tidak diketahui (firmware membatalkan gerakan di tengah
+            jalan) atau benda sedang digenggam -> tidak ada langkah otomatis
+            yang aman. HENTIKAN lini, serahkan ke operator.
+        """
+        self._kata(f"GERAKAN GAGAL: {err}")
+        if self.bot.position_known and not terangkat:
+            try:
+                self.bot.vacuum(False)
+                if self.bot.z < Z_SAFE:
+                    # Belt tidak boleh jalan selagi gripper masih menempel
+                    # di benda -- bendanya akan terseret.
+                    self.bot.move(z=Z_SAFE, f=F_SLOW)
+            except rnv3.RNV3Error as e2:
+                self._kata(f"gagal menjauhkan gripper dari belt: {e2}")
+            else:
+                return self._buang_siklus(Hasil.ROBOT_ERROR,
+                                          f"gerakan ditolak: {err}")
+        self._kata("lini DIHENTIKAN — posisi lengan tidak bisa dipercaya atau "
+                   "benda masih digenggam. Periksa robot, lalu jalankan ulang.")
+        self.minta_berhenti()
+        self._lapor("robot error", hasil_terakhir=Hasil.ROBOT_ERROR)
+        return Hasil.ROBOT_ERROR
 
     # -- loop ----------------------------------------------------------------
     def minta_berhenti(self):
@@ -444,13 +507,23 @@ class Jalur:
         return self.statistik
 
     def selesai(self):
-        """Matikan belt, lepas vakum, parkir rendah. Aman dipanggil kapan saja."""
+        """Matikan belt, lepas vakum, parkir rendah. Aman dipanggil kapan saja.
+
+        Parkir di PARKIR_XY, BUKAN di XY tempat lengan kebetulan berhenti.
+        Versi lama menurunkan lengan lurus ke Z_PARKIR di tempat -- dan
+        setelah siklus sukses tempat itu di atas bak, tepat di atas botol yang
+        baru ditaruh (puncaknya Z=+70, parkir di Z=-40).
+        """
         self._lapor("merapikan")
         try:
             self.belt.berhenti()
             self.bot.vacuum(False)
-            if self.bot.position_known:
-                self._kata(f"parkir di Z={Z_PARKIR:.0f}")
+            if self.bot.position_known and not self.bot.butuh_home:
+                px, py = PARKIR_XY
+                self._kata(f"parkir di X{px:.0f} Y{py:.0f} Z{Z_PARKIR:.0f}")
+                if self.bot.z < Z_SAFE:
+                    self.bot.move(z=Z_SAFE, f=F_SLOW)   # naik dulu, baru geser
+                self.bot.goto_xy(px, py, f=F_FAST)
                 self.bot.move(z=Z_PARKIR, f=F_SLOW)
             else:
                 self._kata("posisi tidak diketahui — TIDAK parkir otomatis. "

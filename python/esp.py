@@ -56,6 +56,10 @@ TIMEOUT_DEFAULT = 2.0
 WATCHDOG_MS = 2000
 DETAK_DETIK = WATCHDOG_MS / 1000.0 / 2
 
+# Jeda sebelum membuang sisa balasan setelah timeout -- sama alasannya dengan
+# rnv3.SETTLE_AFTER_TIMEOUT. Lihat ESP._timeout_error().
+SETTLE_AFTER_TIMEOUT = 0.3
+
 EVENT = re.compile(r"^EVENT\s+(\w+)$")
 STATUS = re.compile(r"BENDA=(YA|TIDAK)")
 JARAK = re.compile(r"JARAK=([\d.]+)")
@@ -106,6 +110,21 @@ class ESP:
             self.ser.close()
 
     # -- transport ----------------------------------------------------------
+    def _timeout_error(self, pesan):
+        """Siapkan ESPError timeout SETELAH membersihkan buffer masuk.
+
+        Bug yang sama yang dulu ada di rnv3.py: "OK" yang datang terlambat
+        mengendap di buffer dan dibaca send() BERIKUTNYA sebagai balasannya.
+        Untuk STATUS itu fatal -- "OK" polos dari JALAN yang telat tidak punya
+        BENDA=..., atau lebih buruk, STATUS lama dibaca sebagai keadaan baru.
+        """
+        time.sleep(SETTLE_AFTER_TIMEOUT)
+        try:
+            self.ser.reset_input_buffer()
+        except Exception:
+            pass        # port sudah mati; error timeout-nya tetap naik
+        return ESPError(pesan)
+
     def send(self, cmd, timeout=TIMEOUT_DEFAULT):
         """Kirim satu perintah, kumpulkan balasan sampai OK/ERROR.
 
@@ -124,7 +143,8 @@ class ESP:
             raw = self.ser.readline()
             if not raw:
                 if time.monotonic() > batas:
-                    raise ESPError(f"timeout {timeout}s menunggu balasan: {cmd}")
+                    raise self._timeout_error(
+                        f"timeout {timeout}s menunggu balasan: {cmd}")
                 continue
             baris = raw.decode("utf-8", "replace").strip()
             if not baris:
@@ -147,7 +167,8 @@ class ESP:
             if self.verbose:
                 print(f"   (baris tidak dikenal, diabaikan: {baris!r})")
             if time.monotonic() > batas:
-                raise ESPError(f"timeout {timeout}s menunggu OK untuk: {cmd}")
+                raise self._timeout_error(
+                    f"timeout {timeout}s menunggu OK untuk: {cmd}")
 
     def ambil_event(self, bersihkan=True):
         """Event yang sudah tertangkap. list [(nama, waktu)].

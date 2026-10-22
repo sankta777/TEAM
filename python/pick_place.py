@@ -13,10 +13,10 @@ diperbaiki. Yang paling penting:
     dikirim, jadi benda tidak akan pernah terangkat.
   * tidak ada fungsi place() sama sekali.
 
-Di sini validasi memakai check_reach() + check_path() dari rnv3.py, yang
-mereplika isAllowedPosition() milik firmware. validasi_grid() dijalankan SEBELUM
-menyambung ke robot dan MENOLAK jalan kalau ada satu slot saja yang tak
-terjangkau.
+Di sini validasi memakai check_aman() + check_path() dari rnv3.py -- batas
+firmware (isAllowedPosition()) DITAMBAH batas fisik, sama dengan move().
+validasi_grid() dijalankan SEBELUM menyambung ke robot dan MENOLAK jalan kalau
+ada satu slot saja yang tak terjangkau.
 
 CARA PAKAI (Windows -- WSL tidak melihat USB tanpa usbipd):
     python.exe -m pip install pyserial          # sekali saja
@@ -31,7 +31,7 @@ import argparse
 import sys
 
 import rnv3
-from rnv3 import RNV3, RNV3Error, check_path, check_reach, xy_limits
+from rnv3 import RNV3, RNV3Error, check_aman, check_path, xy_limits
 
 # ===========================================================================
 # KONFIGURASI  — ukur di robot nyata, lalu sesuaikan angka-angka di sini.
@@ -129,8 +129,9 @@ def validasi_grid(cetak=True):
 
     for n in range(1, jumlah_slot() + 1):
         x, y, e = slot_coord(n)
-        ok_s, why_s = check_reach(x, y, Z_SAFE, e)
-        ok_p, why_p = check_reach(x, y, Z_PICK, e)
+        # check_aman, bukan check_reach: harus sama ketatnya dengan move().
+        ok_s, why_s = check_aman(x, y, Z_SAFE, e)
+        ok_p, why_p = check_aman(x, y, Z_PICK, e)
         if not ok_s:
             masalah.append(f"slot {n} di Z_SAFE: {why_s}")
         if not ok_p:
@@ -186,7 +187,7 @@ def _saran():
                 for cols in (6, 5, 4):
                     span = (cols - 1) * pitch
                     xs = [-span / 2 + i * pitch for i in range(cols)]
-                    if all(check_reach(x, y, zs)[0] and check_reach(x, y, Z_PICK)[0]
+                    if all(check_aman(x, y, zs)[0] and check_aman(x, y, Z_PICK)[0]
                            for x in xs):
                         jp, _, _ = check_path((xs[0], y, zs), (xs[-1], y, zs))
                         if jp:
@@ -256,6 +257,12 @@ def parkir(bot):
     """
     print("\n>>> PARKIR")
     bot.vacuum(False)
+    if bot.butuh_home:
+        # Sudah diparkir + M18 sebelumnya (perintah 'k'), atau belum pernah
+        # homing. Gerakan apa pun sekarang dijawab 'ok' tapi lengan diam.
+        print("  motor sudah mati -- tidak parkir lagi (ketik c untuk kalibrasi "
+              "kalau mau lanjut)")
+        return
     bot.move(z=Z_SAFE, f=F_FAST)
     bot.move(e=rnv3.HOME_E, f=F_RAIL)
     bot.move(x=rnv3.HOME_X, y=rnv3.HOME_Y, f=F_FAST)
@@ -263,6 +270,7 @@ def parkir(bot):
     if MATIKAN_SAAT_SELESAI:
         bot.steppers(False)       # M18: motor + kipas mati, robot diam total
         print("  motor & kipas dimatikan -- saklar fisik aman ditekan")
+        print("  (mau gerak lagi? ketik c untuk kalibrasi ulang dulu)")
 
 
 # ===========================================================================
@@ -271,7 +279,7 @@ def parkir(bot):
 def interaktif(bot):
     total = jumlah_slot()
     print(f"\nPerintah:  <n> pick   p<n> place   <a>-<b> pindah   "
-          f"k parkir   q keluar")
+          f"k parkir   c kalibrasi   q keluar")
     while True:
         try:
             jwb = input(f"slot (1-{total}) > ").strip().lower()
@@ -285,6 +293,9 @@ def interaktif(bot):
                 break
             if jwb == "k":
                 parkir(bot)
+            elif jwb == "c":
+                bot.home()
+                print("  kalibrasi selesai, motor menyala lagi")
             elif "-" in jwb:
                 a, b = (int(v) for v in jwb.split("-", 1))
                 pindah(bot, a, b)
@@ -390,11 +401,14 @@ def main(argv=None):
             print("  - jalankan dengan --sim untuk mencoba tanpa robot")
             return 1
 
+    kode = 0
     try:
         bot.home()
         if a.gui:
-            return jalankan_gui(bot)
-        if a.pick is not None:
+            # Dulu `return` langsung di sini, jadi parkir() di bawah terlewat
+            # dan lengan ditinggal di mana pun saat jendela ditutup.
+            kode = jalankan_gui(bot)
+        elif a.pick is not None:
             pick(bot, a.pick)
         elif a.place is not None:
             place(bot, a.place)
@@ -410,7 +424,7 @@ def main(argv=None):
         print("\ndihentikan pengguna")
     finally:
         bot.close()
-    return 0
+    return kode
 
 
 if __name__ == "__main__":

@@ -443,8 +443,8 @@ cek("kumpulkan() menggabungkan tekanan berurutan",
     [("KANAN", 3), ("ATAS", 1), ("KANAN", 1)])
 cek("kumpulkan() daftar kosong -> kosong", jg.kumpulkan([]) == [])
 
-cek("WASD: A/D = X kiri/kanan, W/S = Y maju/mundur",
-    jg.ARAH["a"] == ("x", -1) and jg.ARAH["d"] == ("x", 1) and
+cek("WASD: A/D = PUTAR badan kiri/kanan, W/S = Y maju/mundur",
+    jg.ARAH["a"] == ("rot", -1) and jg.ARAH["d"] == ("rot", 1) and
     jg.ARAH["w"] == ("y", 1) and jg.ARAH["s"] == ("y", -1))
 cek("IJKL: I/K = Z naik/turun, J/L = rel kiri/kanan",
     jg.ARAH["i"] == ("z", 1) and jg.ARAH["k"] == ("z", -1) and
@@ -453,6 +453,114 @@ cek("alias panah & PgUp/PgDn masih menunjuk sumbu yang sama",
     jg.ARAH["KIRI"] == jg.ARAH["a"] and jg.ARAH["KANAN"] == jg.ARAH["d"] and
     jg.ARAH["ATAS"] == jg.ARAH["w"] and jg.ARAH["BAWAH"] == jg.ARAH["s"] and
     jg.ARAH["PGUP"] == jg.ARAH["i"] and jg.ARAH["PGDN"] == jg.ARAH["k"])
+
+# ---- A/D memutar badan, lengan TIDAK ikut menekuk ----
+# Keluhan di robot asli: tekan A/D, lengan atas & bawah ikut bergerak. Dulu A/D
+# menggeser X dengan Y tetap, jadi radius dan sudut bahu/siku berubah.
+_sd_x0 = rnv3.sudut_sendi(0, 217, 138)
+_sd_x100 = rnv3.sudut_sendi(100, 217, 138)
+cek("[bukti masalah lama] geser X 0->100 di Y217 mengubah sudut bahu",
+    abs(_sd_x100[1] - _sd_x0[1]) > 5.0,
+    f"bahu {_sd_x0[1]:.1f} -> {_sd_x100[1]:.1f}")
+
+bpt = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    bpt.home()
+    bpt.move(z=0, f=20)
+jpt = jg.Jog(bpt)
+jpt.kontinu = False
+jpt.i_step = 4                                   # 25 mm per tekan
+_r0, _z0 = math.hypot(bpt.x, bpt.y), bpt.z
+_sd0 = rnv3.sudut_sendi(bpt.x, bpt.y, bpt.z)
+_r_lintas, _bahu_lintas, _siku_lintas = [], [], []
+with _hening(_io.StringIO()):
+    for _tok in ["d"] * 6 + ["a"] * 12:
+        _n_sebelum = len(bpt.sim.log_perintah)
+        _awal = (bpt.x, bpt.y, bpt.z)
+        if not jpt.tangani(_tok):
+            break
+        # periksa SEPANJANG tali busur yang benar-benar dijalani firmware
+        for _i in range(21):
+            _t_ = _i / 20
+            _px = _awal[0] + _t_ * (bpt.x - _awal[0])
+            _py = _awal[1] + _t_ * (bpt.y - _awal[1])
+            _r_lintas.append(math.hypot(_px, _py))
+            _sd = rnv3.sudut_sendi(_px, _py, bpt.z)
+            _bahu_lintas.append(_sd[1]); _siku_lintas.append(_sd[2])
+_rot_akhir = rnv3.sudut_sendi(bpt.x, bpt.y, bpt.z)[0]
+cek("A/D: badan benar-benar berputar (bukan diam)",
+    abs(_rot_akhir - _sd0[0]) > 10.0, f"rot {_sd0[0]:.1f} -> {_rot_akhir:.1f}")
+cek("A/D: radius ujung tool tetap (maks melenceng <= 0.35 mm sepanjang jalur)",
+    max(abs(r - _r0) for r in _r_lintas) <= 0.35,
+    f"r0={_r0:.2f} rentang {min(_r_lintas):.2f}..{max(_r_lintas):.2f}")
+cek("A/D: Z tidak berubah", abs(bpt.z - _z0) < 1e-9, f"{_z0} -> {bpt.z}")
+cek("A/D: sudut bahu nyaris tetap (lengan bawah tidak ikut jalan)",
+    max(abs(b - _sd0[1]) for b in _bahu_lintas) < 0.3,
+    f"{min(_bahu_lintas):.2f}..{max(_bahu_lintas):.2f} vs {_sd0[1]:.2f}")
+cek("A/D: sudut siku nyaris tetap (lengan atas tidak ikut jalan)",
+    max(abs(k - _sd0[2]) for k in _siku_lintas) < 0.3,
+    f"{min(_siku_lintas):.2f}..{max(_siku_lintas):.2f} vs {_sd0[2]:.2f}")
+cek("A/D: pesan status dalam derajat putar", "putar" in jpt.pesan, jpt.pesan)
+
+# ditahan lama: pembulatan 2 desimal di G0 tidak boleh menumpuk jadi drift
+bdr = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    bdr.home()
+jdr = jg.Jog(bdr)
+jdr.kontinu = False
+jdr.i_step = 0                                   # 0.5 mm, potongan terbanyak
+_rd0 = math.hypot(bdr.x, bdr.y)
+with _hening(_io.StringIO()):
+    for _ in range(300):
+        jdr.tangani("d")
+    for _ in range(300):
+        jdr.tangani("a")
+cek("A/D 600x bolak-balik: radius tidak hanyut (< 0.2 mm)",
+    abs(math.hypot(bdr.x, bdr.y) - _rd0) < 0.2,
+    f"{_rd0:.3f} -> {math.hypot(bdr.x, bdr.y):.3f}")
+
+# putar sampai mentok: berhenti di batas putar fisik, bukan lewat
+bmp = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    bmp.home()
+jmp = jg.Jog(bmp)
+jmp.kontinu = False
+jmp.i_step = 4
+with _hening(_io.StringIO()):
+    for _ in range(80):
+        if not jmp.tangani("d") or "MENTOK" in jmp.pesan:
+            break
+# Batas mana yang kena duluan tergantung radius (rot_maks atau y_min), jadi
+# yang dicek: titik berhenti masih aman, dan 0.5 mm busur lagi sudah tidak.
+cek("putar terus ke kanan: berhenti TEPAT di tepi batas fisik",
+    rnv3.check_aman(bmp.x, bmp.y, bmp.z, bmp.e)[0] and not rnv3.check_aman(
+        *jg.geser(bmp.x, bmp.y, bmp.z, bmp.e, "rot", +1, 0.5))[0],
+    f"X{bmp.x:.2f} Y{bmp.y:.2f}")
+cek("dan sisa ke arah itu nol", jg.jarak_tersisa(
+    bmp.x, bmp.y, bmp.z, bmp.e, "rot", +1) < jg.MENTOK)
+
+# ; setelah memutar -> merekam rot_maks, bukan crash
+import tempfile as _tmp_rot
+_berkas_rot = os.path.join(_tmp_rot.gettempdir(), "uji-batas-rot-rnv3.json")
+_asli_rot = dict(rnv3.BATAS_FISIK)
+_berkas_asli_rot = rnv3.BERKAS_BATAS
+rnv3.BERKAS_BATAS = _berkas_rot
+brr = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    brr.home()
+    jrr = jg.Jog(brr)
+    jrr.kontinu = False
+    jrr.i_step = 4
+    jrr.tangani("a"); jrr.tangani("a")
+    _ok_rot = jrr.rekam_batas()
+rnv3.BERKAS_BATAS = _berkas_asli_rot
+_rot_rr = abs(rnv3.sudut_sendi(brr.x, brr.y, brr.z)[0])
+cek("; setelah A/D merekam rot_maks = sudut putar sekarang",
+    _ok_rot and rnv3.BATAS_FISIK.get("rot_maks") == round(_rot_rr, 1),
+    f"rot_maks={rnv3.BATAS_FISIK.get('rot_maks')} vs {_rot_rr:.1f}")
+rnv3.BATAS_FISIK.clear(); rnv3.BATAS_FISIK.update(_asli_rot)
+try: os.remove(_berkas_rot)
+except OSError: pass
 
 # PAGAR: tombol aksi tidak boleh bentrok dengan tombol gerak.
 AKSI = set("12345[]-=0gbvpmnohxXrtcq?")
@@ -498,8 +606,10 @@ j.i_step, j.i_speed = 1, 1       # paksa 1.0 mm supaya angkanya bulat
 x0 = bj.x
 with _hening(_io.StringIO()):
     j.tangani("d", 3)
-cek("D x3 dengan step 1 mm -> bergeser tepat 3 mm",
-    abs(bj.x - (x0 + 3.0)) < 1e-9, f"{x0} -> {bj.x}")
+# D sekarang memutar badan: 3 mm itu panjang BUSUR di ujung tool, jadi X
+# bertambah sedikit kurang dari 3 dan Y sedikit turun (radius tetap).
+cek("D x3 dengan step 1 mm -> berputar sejauh busur 3 mm",
+    abs(bj.x - (x0 + 3.0)) < 0.01, f"{x0} -> {bj.x}")
 cek("dan dikirim sebagai SATU perintah G0, bukan tiga",
     bj.sim.log_perintah[-1].startswith("G0") and
     "X" + f"{x0 + 3.0:.2f}" in bj.sim.log_perintah[-1],
@@ -1376,6 +1486,324 @@ if os.path.exists(_fw):
         cek("simulasi.py tidak menambah alias yang tidak ada di firmware",
             set(_alias_sim) <= set(_alias_fw),
             str(sorted(set(_alias_sim) - set(_alias_fw))))
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("19. REGRESI review 21 Okt -- stepper mati, siklus macet, parkir")
+print("=" * 68)
+
+# ---- G0 dengan stepper mati: firmware menjawab 'ok', lengan diam ----
+# Sumbernya robotRNV3_v2_02.ino: case 0/1 cuma fan.enable(true); stepper
+# hanya dinyalakan Endstop::home() (G28) atau M17.
+_fwino = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                      "..", "firmware", "v2_02", "robotRNV3_v2_02.ino")
+with open(_fwino, encoding="utf-8", errors="replace") as _f:
+    _src_ino = _f.read()
+_blok_g0 = _re.search(r"case 0:\s*case 1:(.*?)case 4:", _src_ino, _re.S)
+cek("firmware: blok G0 tidak menyalakan stepper (dasar perbaikan ini)",
+    _blok_g0 is not None and "setStepperEnable" not in _blok_g0.group(1)
+    and "fan.enable(true)" in _blok_g0.group(1))
+
+_bm = simulasi.robot_palsu()
+cek("robot baru tersambung -> butuh_home (stepper mati saat boot)",
+    _bm.butuh_home is True)
+_n = len(_bm.sim.log_perintah)
+try:
+    _bm.move(z=100, f=20)
+    _pesan = "diterima"
+except rnv3.RNV3Error as _x:
+    _pesan = str(_x)
+cek("move() sebelum homing DITOLAK", "home()" in _pesan, _pesan)
+cek("dan tidak ada G0 terkirim", len(_bm.sim.log_perintah) == _n)
+
+with _hening(_io.StringIO()):
+    _bm.home()
+cek("home() -> butuh_home False & stepper simulator menyala",
+    _bm.butuh_home is False and _bm.sim.steppers_on is True)
+
+with _hening(_io.StringIO()):
+    _bm.steppers(False)
+cek("steppers(False) / M18 -> butuh_home True", _bm.butuh_home is True)
+_n = len(_bm.sim.log_perintah)
+try:
+    _bm.move(z=50, f=20)
+    _pesan = "diterima"
+except rnv3.RNV3Error as _x:
+    _pesan = str(_x)
+cek("move() setelah M18 DITOLAK (dulu diterima, lengan diam)",
+    "stepper mati" in _pesan, _pesan)
+cek("dan tidak ada G0 terkirim", len(_bm.sim.log_perintah) == _n)
+_bm.position()
+cek("M114 TIDAK memulihkan (cuma melapor anggapan firmware)",
+    _bm.butuh_home is True)
+_bm.steppers(True)
+cek("M17 TIDAK memulihkan (lengan sudah loyo, posisi tak dipercaya)",
+    _bm.butuh_home is True)
+
+# Simulator sekarang meniru firmware: G0 tanpa motor dihitung, bukan diam.
+_bm.send("M18")
+_bm.send("G0 Z120")
+cek("simulator mencatat G0 yang dikirim saat stepper mati",
+    _bm.sim.gerak_tanpa_motor == 1, f"{_bm.sim.gerak_tanpa_motor}")
+
+# pick_place interaktif: 'k' (parkir + M18) lalu pick -> dulu "berhasil"
+_bk = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    _bk.home()
+    pp.parkir(_bk)
+try:
+    with _hening(_io.StringIO()):
+        pp.pick(_bk, 1)
+    _pesan = "diterima"
+except rnv3.RNV3Error as _x:
+    _pesan = str(_x)
+cek("pick_place: pick setelah parkir+M18 DITOLAK, tidak diam-diam",
+    "stepper mati" in _pesan, _pesan)
+_buf = _io.StringIO()
+try:
+    with _ctx.redirect_stdout(_buf):
+        pp.parkir(_bk)                    # main() memanggil parkir lagi di akhir
+    _pesan = ""
+except rnv3.RNV3Error as _x:
+    _pesan = str(_x)
+cek("parkir() kedua kali tidak gagal, menjelaskan motor sudah mati",
+    _pesan == "" and "sudah mati" in _buf.getvalue(), _pesan)
+with _hening(_io.StringIO()):
+    _bk.home()
+    pp.pick(_bk, 1)
+cek("setelah kalibrasi ulang, pick jalan lagi", _bk.sim.vacuum_on is True)
+cek("sepanjang itu tidak ada G0 yang terkirim tanpa motor",
+    _bk.sim.gerak_tanpa_motor == 0, f"{_bk.sim.gerak_tanpa_motor}")
+
+# pick_place --gui: dulu `return` sebelum parkir()
+_tangkap = []
+_gui_asli = pp.jalankan_gui
+pp.jalankan_gui = lambda bot: (_tangkap.append(bot), 0)[1]
+try:
+    with _hening(_io.StringIO()):
+        _kode_gui = pp.main(["--sim", "--gui", "--diam"])
+finally:
+    pp.jalankan_gui = _gui_asli
+cek("--gui: setelah jendela ditutup lengan TETAP diparkir + M18",
+    _kode_gui == 0 and _tangkap and _tangkap[0].z == pp.Z_PARKIR
+    and "M18" in [c.upper().replace(" ", "") for c in _tangkap[0].sim.log_perintah],
+    f"kode={_kode_gui}")
+
+# jog: C setelah R mengembalikan status motor
+_bj = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    _bj.home()
+    _jj = jg.Jog(_bj)
+    _jj.tangani("r")
+    _jj.tangani("c")
+cek("jog: C setelah R -> motor_terkunci True dan bisa gerak lagi",
+    _jj.motor_terkunci is True and _jj.gerak("x", +1, 1) is True)
+
+# ---- label kamera ----
+cek("JENIS memakai label kamera 'tutup_botol', bukan 'botol'",
+    "tutup_botol" in jalur.JENIS and "botol" not in jalur.JENIS,
+    str(sorted(jalur.JENIS)))
+cek("'tutup_botol' tidak jatuh ke JENIS_DEFAULT",
+    jalur.profil("tutup_botol") is jalur.JENIS["tutup_botol"])
+
+# ---- validasi sama ketatnya dengan move() ----
+_d60 = kontrak_kamera.Deteksi(x_mm=-250.0, y_mm=60.0, label="koin")
+cek("titik uji (-250, 60) lolos batas FIRMWARE ...",
+    rnv3.check_reach(-250.0, 60.0, jalur.z_ambil("koin"))[0] is True)
+cek("... tapi Deteksi.terjangkau() menolaknya, sama seperti move()",
+    _d60.terjangkau(jalur.z_ambil("koin"))[0] is False)
+
+_simpan_jenis = {k: dict(v) for k, v in jalur.JENIS.items()}
+try:
+    jalur.JENIS["koin"]["taruh"] = (-250.0, 60.0)
+    _m = jalur.validasi_konfigurasi(cetak=False)
+finally:
+    jalur.JENIS.clear(); jalur.JENIS.update(_simpan_jenis)
+cek("validasi_konfigurasi() menolak bak yang melanggar batas FISIK",
+    any("batas fisik" in x for x in _m), str(_m))
+
+_rot = rnv3.BATAS_FISIK["rot_maks"]
+try:
+    rnv3.BATAS_FISIK["rot_maks"] = 20.0       # slot ujung grid ~28 derajat
+    _ok_grid, _ = pp.validasi_grid(cetak=False)
+finally:
+    rnv3.BATAS_FISIK["rot_maks"] = _rot
+cek("validasi_grid() menolak grid yang melanggar batas FISIK",
+    _ok_grid is False)
+cek("batas fisik dipulihkan", rnv3.BATAS_FISIK == BATAS_BAWAAN)
+
+
+# ---- jalur.py: siklus tidak boleh macet di benda yang sama ----
+class _KameraTetap(kontrak_kamera.SumberDeteksi):
+    """Selalu melihat benda yang sama, persis benda yang tidak pernah pergi."""
+
+    def __init__(self, d):
+        self.d, self.n = d, 0
+
+    def deteksi(self):
+        self.n += 1
+        return [self.d]
+
+
+def _jalur_uji(kamera=None):
+    _j, _tutup = jalur.rakit(sim=True, verbose=False, seed=7)
+    if kamera is not None:
+        _j.kamera = kamera
+    with _hening(_io.StringIO()):
+        _j.siap()
+    return _j
+
+
+def _n_belt(j):
+    return sum(1 for c in j.bot.sim.log_perintah if c.upper() == "LG1 ON")
+
+
+# Skenario yang dulu berputar selamanya: lolos saringan lama, ditolak move().
+_jt = _jalur_uji(_KameraTetap(_d60))
+with _hening(_io.StringIO()):
+    _st = _jt.jalankan(siklus=3)
+cek("benda melanggar batas fisik -> 'di luar jangkauan', bukan robot error",
+    _st == {jalur.Hasil.DILUAR_JANGKAUAN: 3}, str(_st))
+cek("dan bendanya DIDORONG lewat tiap siklus (belt jalan 2x per siklus)",
+    _n_belt(_jt) == 6, f"belt nyala {_n_belt(_jt)}x")
+
+
+def _gagal_sekali(j, ke, posisi_hilang=False):
+    """Buat goto_xy ke-`ke` gagal sekali. posisi_hilang meniru firmware
+    yang membatalkan gerakan di tengah jalan."""
+    asli, hit = j.bot.goto_xy, [0]
+
+    def palsu(*a, **kw):
+        hit[0] += 1
+        if hit[0] == ke:
+            if posisi_hilang:
+                j.bot.position_known = False
+            raise rnv3.RNV3Error("uji: gerakan ditolak")
+        return asli(*a, **kw)
+    j.bot.goto_xy = palsu
+
+
+# Ditolak sebelum dikirim, benda belum terangkat -> dorong lewat, lanjut.
+_jg = _jalur_uji()
+_gagal_sekali(_jg, ke=1)
+with _hening(_io.StringIO()):
+    _st = _jg.jalankan(siklus=3)
+cek("gerakan ditolak sebelum mengambil -> siklus itu dilewatkan, lini lanjut",
+    _st.get(jalur.Hasil.ROBOT_ERROR) == 1 and _st.get(jalur.Hasil.SUKSES) == 2,
+    str(_st))
+cek("vakum mati dan lengan di Z aman sebelum belt didorong",
+    any(c.upper().replace(" ", "") == "VACUMOFF"
+        for c in _jg.bot.sim.log_perintah))
+
+# Firmware membatalkan di tengah jalan -> posisi hilang -> HENTIKAN.
+_jh = _jalur_uji()
+_gagal_sekali(_jh, ke=1, posisi_hilang=True)
+with _hening(_io.StringIO()):
+    _st = _jh.jalankan(siklus=5)
+cek("posisi hilang -> lini BERHENTI setelah 1 siklus, tidak mengulang",
+    _st == {jalur.Hasil.ROBOT_ERROR: 1}, str(_st))
+cek("dan tidak parkir dengan posisi yang tidak diketahui",
+    _jh.snapshot()["state"] == "berhenti")
+
+# Gagal saat benda sedang digenggam (goto_xy ke-2 = menuju bak) -> HENTIKAN.
+_jd = _jalur_uji()
+_gagal_sekali(_jd, ke=2)
+with _hening(_io.StringIO()):
+    _st = _jd.jalankan(siklus=5)
+cek("gagal saat menggenggam benda -> lini BERHENTI, tidak lanjut siklus",
+    _st == {jalur.Hasil.ROBOT_ERROR: 1}, str(_st))
+
+# ---- jalur.py: parkir di PARKIR_XY, bukan di atas bak ----
+_jp = _jalur_uji()
+with _hening(_io.StringIO()):
+    _st = _jp.jalankan(siklus=6)
+cek("simulasi 6 siklus sukses semua, kedua jenis benda kena",
+    _st == {jalur.Hasil.SUKSES: 6} and all(_jp.hitungan.values()),
+    f"{_st} {_jp.hitungan}")
+cek("selesai() berakhir di PARKIR_XY + Z_PARKIR",
+    (round(_jp.bot.x, 2), round(_jp.bot.y, 2), _jp.bot.z)
+    == (*jalur.PARKIR_XY, jalur.Z_PARKIR),
+    f"X{_jp.bot.x} Y{_jp.bot.y} Z{_jp.bot.z}")
+_g0 = [c for c in _jp.bot.sim.log_perintah if c.startswith("G0")]
+cek("urutan parkir: geser XY dulu (tanpa Z), baru turun Z saja",
+    "Z" not in _g0[-2] and "X" in _g0[-2] and _g0[-1].split()[1].startswith("Z"),
+    str(_g0[-2:]))
+cek("seluruh run tanpa satu pun G0 saat stepper mati",
+    _jp.bot.sim.gerak_tanpa_motor == 0 and _jp.bot.sim.jumlah_limit == 0)
+
+# ---- esp.py: buffer dibersihkan saat timeout ----
+_eu = mod_esp.ESP("UJI", ser=_SerialUji([b"OK\n"]), tunggu_boot=False)
+cek("'OK' basi di buffer ESP memang diterima sebagai balasan (sumber desync)",
+    _eu.send("STATUS", timeout=0.05) == "")
+_eu = mod_esp.ESP("UJI", ser=_SerialUji(), tunggu_boot=False)
+try:
+    _eu.send("PING", timeout=0.05)
+    _pesan = "tidak melempar"
+except mod_esp.ESPError as _x:
+    _pesan = str(_x)
+cek("ESP.send() timeout -> ESPError", "timeout" in _pesan, _pesan)
+cek("dan buffer masuk ESP DIBERSIHKAN", _eu.ser.dibersihkan == 1,
+    f"{_eu.ser.dibersihkan}x")
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("20. jog.py -- SATU baris status, cuma angkanya yang berganti")
+print("=" * 68)
+
+_bs = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    _bs.home()
+_js = jg.Jog(_bs)
+with _hening(_io.StringIO()):
+    _js.gerak("y", +1, 1)
+_s = _js.status()
+cek("baris status diawali koordinat", _s.startswith("Posisi lengan  X"), _s)
+cek("setelan (step/sapuan/profil) tidak ikut di tiap gerakan",
+    "step" not in _s and "sapuan" not in _s and "kosinus" not in _s, _s)
+cek("setelan tetap bisa dilihat lewat setelan()",
+    "step" in _js.setelan() and "profil" in _js.setelan())
+
+# Terminal sempit: baris tidak boleh melebihi lebar (kalau terlipat, '\r'
+# gagal menimpa dan setiap gerakan tampak jadi baris baru).
+_lebar_asli = jg.lebar_terminal
+jg.lebar_terminal = lambda: 59
+try:
+    _js.pesan = "pesan yang sengaja dibuat panjang sekali " * 3
+    _buf = _io.StringIO()
+    with _ctx.redirect_stdout(_buf):
+        _js.cetak_status(di_tempat=True)
+        _js.cetak_status(di_tempat=True)
+finally:
+    jg.lebar_terminal = _lebar_asli
+_cetak = _buf.getvalue()
+_potong = [p for p in _cetak.split("\r") if p]
+cek("cetak di tempat tidak pernah membuat baris baru", "\n" not in _cetak,
+    repr(_cetak[:80]))
+cek("tiap tulisan pas selebar terminal (59), tidak terlipat",
+    _potong and all(len(p) == 59 for p in _potong),
+    str([len(p) for p in _potong]))
+
+
+def _jalankan_jog(*arg):
+    _buf = _io.StringIO()
+    with _ctx.redirect_stdout(_buf):
+        _kode = jg.main(["--sim", "--tanpa-tanya", "--urutan", "w w w q", *arg])
+    _isi = _buf.getvalue()
+    # Bagian setelah homing: di sinilah jogging terjadi.
+    return _kode, _isi[_isi.index("selesai homing"):]
+
+
+_kode, _isi = _jalankan_jog()
+cek("jogging bawaan: lalu-lintas serial TIDAK tercetak di sela gerakan",
+    _kode == 0 and ">> G0" not in _isi and "<< ok" not in _isi,
+    f"kode={_kode}")
+_kode, _isi = _jalankan_jog("--ramai")
+cek("--ramai: lalu-lintas serial tetap tercetak untuk debug",
+    _kode == 0 and ">> G0" in _isi and "<< ok" in _isi, f"kode={_kode}")
 
 
 print()

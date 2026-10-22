@@ -62,7 +62,13 @@ class SerialPalsu:
         self.servo_b = self.servo_max
         self.vacuum_on = False
         self.lg = {1: False, 2: False, 3: False}
+        # Mati saat boot (setStepperEnable(false) di setup()). Hanya G28 dan
+        # M17 yang menyalakannya -- G0 TIDAK (robotRNV3_v2_02.ino:215 cuma
+        # fan.enable). G0 dengan stepper mati tetap dijawab 'ok' dan posisi
+        # anggapan firmware tetap bergerak, tapi lengan fisiknya diam;
+        # gerak_tanpa_motor menghitung kejadian itu supaya tes bisa melihatnya.
         self.steppers_on = False
+        self.gerak_tanpa_motor = 0
         # Profil kecepatan aktif. config.h memakai 2 (kosinus) saat boot;
         # M205 S<n> menggantinya saat jalan (interpolation.cpp setSpeedProfile).
         self.speed_profile = 2
@@ -258,6 +264,8 @@ class SerialPalsu:
                           f"Y:{ty - self.offset[1]:.2f} "
                           f"Z:{tz - self.offset[2]:.2f} "
                           f"E:{te - self.offset[3]:.2f}]")
+                if not self.steppers_on:
+                    self.gerak_tanpa_motor += 1
                 self._gerak(tx, ty, tz, te)
             elif num == 4:
                 pass                     # G4: delay; simulator tidak menunggu
@@ -266,6 +274,7 @@ class SerialPalsu:
                     rnv3.HOME_X, rnv3.HOME_Y, rnv3.HOME_Z, rnv3.HOME_E)
                 self.offset = [0.0, 0.0, 0.0, 0.0]
                 self.homed = True
+                self.steppers_on = True   # Endstop::home() menulis en_pin LOW
                 self._say("HOMING COMPLETE")
             elif num == 90:
                 self.relative = False
@@ -358,6 +367,7 @@ def robot_palsu(firmware="v2_02", rail=True, sensor=(True, False, True),
         rnv3.HOME_X, rnv3.HOME_Y, rnv3.HOME_Z, rnv3.HOME_E)
     bot.relative = False
     bot.position_known = True
+    bot.butuh_home = True
     bot.firmware = "v2_01"
     bot.boot_lines = []
     bot.servo_range_reported = None

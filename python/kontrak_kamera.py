@@ -18,7 +18,7 @@ Permintaan:
 Balasan sukses:
     {"ok": true, "ts": <epoch float>, "objects": [
         {"x_mm": -40.5, "y_mm": 265.0, "angle_deg": 12.0,
-         "label": "botol", "conf": 0.92}
+         "label": "tutup_botol", "conf": 0.92}
     ]}
 
 Balasan gagal:
@@ -38,7 +38,7 @@ ATURAN YANG HARUS DISEPAKATI TERTULIS:
 
 4. angle_deg, label, conf boleh dikosongkan. x_mm dan y_mm wajib.
 
-5. Orkestrator TETAP memanggil rnv3.check_reach() sebelum menggerakkan lengan.
+5. Orkestrator TETAP memanggil rnv3.check_aman() sebelum menggerakkan lengan.
    Kamera boleh saja melaporkan titik di luar jangkauan -- itu bukan dosa,
    nanti di-skip. Jangan mencoba menebak jangkauan robot dari sisi kamera.
 
@@ -139,14 +139,16 @@ class Deteksi:
     def terjangkau(self, z):
         """(bool, alasan) -- apakah titik ini bisa dicapai lengan di tinggi z.
 
-        Pakai rnv3.check_reach() yang merupakan replika persis
-        isAllowedPosition() di firmware, jadi jawabannya sama dengan robot.
+        Pakai rnv3.check_aman() -- batas firmware DAN batas fisik -- karena
+        itulah yang dipakai RNV3.move(). Dulu di sini check_reach() saja:
+        benda di, misalnya, Y=60 lolos saringan lalu ditolak move(), dan
+        jalur.py mengulang benda yang sama selamanya.
         """
         if not self.punya_mm:
             raise KameraError(
                 f"{self!r} masih dalam piksel -- belum dikonversi. Beri "
                 f"`kalibrasi=` ke sumber deteksinya.")
-        return rnv3.check_reach(self.x_mm, self.y_mm, z)
+        return rnv3.check_aman(self.x_mm, self.y_mm, z)
 
     def __str__(self):
         nama = self.label or "?"
@@ -299,7 +301,7 @@ class SumberPalsu(SumberDeteksi):
                  peluang_kosong=0.0, peluang_jauh=0.0, seed=None, label=None):
         self.z_pick = z_pick
         self.x, self.y = x, y
-        # Label diacak dari daftar ini, supaya cabang "botol" dan "koin" di
+        # Label diacak dari daftar ini, supaya cabang "tutup_botol" dan "koin" di
         # orkestrator dua-duanya kena saat simulasi.
         self.label = list(label) if label else ["benda-palsu"]
         self.peluang_kosong = peluang_kosong
