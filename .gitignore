@@ -10,6 +10,11 @@ __pycache__/
 docs/Buku panduan robot.pdf
 software-robot/Rus-setup-0.2.exe
 
+# ── Hasil ukur per sesi (tombol O di jog.py) ─────────────────────────
+# Ditulis ulang tiap sesi dan isinya data lapangan, bukan kode. Angka yang
+# mau dipakai dipindah ke konfigurasi, bukan dibaca dari berkas ini.
+python/titik-terukur.txt
+
 # ── OS / editor ───────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

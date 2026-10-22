@@ -1208,7 +1208,8 @@ cek("tes tidak MENGUBAH berkas kalibrasi sungguhan (isolasi)",
 # ---- matikan robot setelah parkir ----
 cek("MATIKAN_SAAT_KELUAR mati secara default (lengan tetap terkunci saat ESC)",
     jg.MATIKAN_SAAT_KELUAR is False)
-cek("pick_place juga mematikan saat selesai", pp.MATIKAN_SAAT_SELESAI is True)
+cek("pick_place juga TIDAK mematikan motor saat selesai (default)",
+    pp.MATIKAN_SAAT_SELESAI is False)
 
 # posisi tak diketahui -> JANGAN matikan (lengan bisa sedang tinggi)
 bmt = simulasi.robot_palsu()
@@ -1226,15 +1227,31 @@ cek("posisi tak diketahui -> TIDAK mengirim M18 lagi saat keluar",
 cek("alasannya dijelaskan, bukan diam-diam",
     bmt.z == 120.0, f"lengan tetap di Z={bmt.z}")
 
-# pick_place: M18 setelah mendarat di Z_PARKIR
-bpp = simulasi.robot_palsu()
+# pick_place (default): parkir, motor TETAP terkunci
+bpd = simulasi.robot_palsu()
 with _hening(_io.StringIO()):
-    bpp.home()
-    bpp.move(z=0, f=20)
-    pp.parkir(bpp)
-cek("pick_place.parkir() mengirim M18 di akhir",
+    bpd.home()
+    bpd.move(z=0, f=20)
+    pp.parkir(bpd)
+cek("pick_place.parkir() (default) TIDAK mengirim M18",
+    "M18" not in [c.upper().replace(" ", "") for c in bpd.sim.log_perintah])
+cek("pick_place.parkir() (default) motor tetap terkunci di Z_PARKIR",
+    bpd.sim.steppers_on is True and bpd.z == pp.Z_PARKIR, f"Z={bpd.z}")
+
+# pick_place, flag True: M18 setelah mendarat di Z_PARKIR
+bpp = simulasi.robot_palsu()
+_flag_pp = pp.MATIKAN_SAAT_SELESAI
+pp.MATIKAN_SAAT_SELESAI = True
+try:
+    with _hening(_io.StringIO()):
+        bpp.home()
+        bpp.move(z=0, f=20)
+        pp.parkir(bpp)
+finally:
+    pp.MATIKAN_SAAT_SELESAI = _flag_pp
+cek("flag True: pick_place.parkir() mengirim M18 di akhir",
     "M18" in [c.upper().replace(" ", "") for c in bpp.sim.log_perintah])
-cek("dan lengan berada di Z_PARKIR saat motor dimatikan",
+cek("flag True: dan lengan berada di Z_PARKIR saat motor dimatikan",
     bpp.z == pp.Z_PARKIR, f"Z={bpp.z}")
 
 
@@ -1564,26 +1581,32 @@ _bm.send("G0 Z120")
 cek("simulator mencatat G0 yang dikirim saat stepper mati",
     _bm.sim.gerak_tanpa_motor == 1, f"{_bm.sim.gerak_tanpa_motor}")
 
-# pick_place interaktif: 'k' (parkir + M18) lalu pick -> dulu "berhasil"
+# pick_place interaktif: 'k' (parkir + M18) lalu pick -> dulu "berhasil".
+# Keadaan "motor sudah mati" sekarang cuma terjadi kalau flag dinyalakan.
 _bk = simulasi.robot_palsu()
-with _hening(_io.StringIO()):
-    _bk.home()
-    pp.parkir(_bk)
+_flag_pp = pp.MATIKAN_SAAT_SELESAI
+pp.MATIKAN_SAAT_SELESAI = True
 try:
     with _hening(_io.StringIO()):
-        pp.pick(_bk, 1)
-    _pesan = "diterima"
-except rnv3.RNV3Error as _x:
-    _pesan = str(_x)
-cek("pick_place: pick setelah parkir+M18 DITOLAK, tidak diam-diam",
-    "stepper mati" in _pesan, _pesan)
-_buf = _io.StringIO()
-try:
-    with _ctx.redirect_stdout(_buf):
-        pp.parkir(_bk)                    # main() memanggil parkir lagi di akhir
-    _pesan = ""
-except rnv3.RNV3Error as _x:
-    _pesan = str(_x)
+        _bk.home()
+        pp.parkir(_bk)
+    try:
+        with _hening(_io.StringIO()):
+            pp.pick(_bk, 1)
+        _pesan = "diterima"
+    except rnv3.RNV3Error as _x:
+        _pesan = str(_x)
+    cek("flag True: pick setelah parkir+M18 DITOLAK, tidak diam-diam",
+        "stepper mati" in _pesan, _pesan)
+    _buf = _io.StringIO()
+    try:
+        with _ctx.redirect_stdout(_buf):
+            pp.parkir(_bk)                # main() memanggil parkir lagi di akhir
+        _pesan = ""
+    except rnv3.RNV3Error as _x:
+        _pesan = str(_x)
+finally:
+    pp.MATIKAN_SAAT_SELESAI = _flag_pp
 cek("parkir() kedua kali tidak gagal, menjelaskan motor sudah mati",
     _pesan == "" and "sudah mati" in _buf.getvalue(), _pesan)
 with _hening(_io.StringIO()):
@@ -1602,9 +1625,9 @@ try:
         _kode_gui = pp.main(["--sim", "--gui", "--diam"])
 finally:
     pp.jalankan_gui = _gui_asli
-cek("--gui: setelah jendela ditutup lengan TETAP diparkir + M18",
+cek("--gui: setelah jendela ditutup lengan TETAP diparkir (motor terkunci)",
     _kode_gui == 0 and _tangkap and _tangkap[0].z == pp.Z_PARKIR
-    and "M18" in [c.upper().replace(" ", "") for c in _tangkap[0].sim.log_perintah],
+    and "M18" not in [c.upper().replace(" ", "") for c in _tangkap[0].sim.log_perintah],
     f"kode={_kode_gui}")
 
 # jog: C setelah R mengembalikan status motor

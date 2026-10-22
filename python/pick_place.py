@@ -66,9 +66,12 @@ Z_PARKIR = -40.0     # ketinggian saat selesai, SEBELUM robot dimatikan.
                      # jatuh dari ketinggian itu. Samakan dengan PARKIR di
                      # jog.py; tekan Shift+X di jog.py untuk mengukurnya.
 
-MATIKAN_SAAT_SELESAI = True   # setelah parkir, kirim M18 (motor + kipas mati).
-                              # Lengan jadi loyo, tapi sudah parkir rendah jadi
-                              # turunnya cuma beberapa mm. Tidak memutus listrik.
+MATIKAN_SAAT_SELESAI = False  # True = setelah parkir, kirim M18 (motor + kipas
+                              # mati) dan lengan jadi loyo. Sengaja False, sama
+                              # dengan jog.MATIKAN_SAAT_KELUAR: Z_PARKIR belum
+                              # diukur, dan di lapangan lengan jatuh terbentur.
+                              # Motor baru lepas saat saklar 12V dimatikan atau
+                              # port dibuka lagi. Tidak memutus listrik.
 
 VACUUM_SETTLE = 0.4  # jeda setelah vakum ON/OFF (firmware sudah punya delay
                      #   sendiri 300/500 ms; ini tambahan pengaman)
@@ -271,6 +274,9 @@ def parkir(bot):
         bot.steppers(False)       # M18: motor + kipas mati, robot diam total
         print("  motor & kipas dimatikan -- saklar fisik aman ditekan")
         print("  (mau gerak lagi? ketik c untuk kalibrasi ulang dulu)")
+    else:
+        print("  motor dibiarkan terkunci -- lengan menahan posisi")
+        print("  (pegang lengan saat saklar 12V dimatikan)")
 
 
 # ===========================================================================

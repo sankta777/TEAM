@@ -619,7 +619,8 @@ Mau lengan tetap menahan posisi setelah keluar? Ubah di atas `jog.py`:
 MATIKAN_SAAT_KELUAR = False
 ```
 
-`pick_place.py` punya setelan setara: `MATIKAN_SAAT_SELESAI`.
+`pick_place.py` punya setelan setara: `MATIKAN_SAAT_SELESAI`. Sejak 22 Okt 2026
+keduanya default `False` (lihat atas).
 
 ### Peringatan mendekati batas
 
