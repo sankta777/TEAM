@@ -14,6 +14,10 @@ software-robot/Rus-setup-0.2.exe
 # Ditulis ulang tiap sesi dan isinya data lapangan, bukan kode. Angka yang
 # mau dipakai dipindah ke konfigurasi, bukan dibaca dari berkas ini.
 python/titik-terukur.txt
+# Titik tertanda dari aplikasi.py -- data kerja, sama alasannya.
+python/titik-tanda.json
+# Sisa tulis-atomik kalau proses mati tepat saat menyimpan.
+*.json.tmp
 
 # ── OS / editor ───────────────────────────────────────────────────────
 .DS_Store

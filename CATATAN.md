@@ -14,7 +14,9 @@ dari source code firmware**, bukan dari video — jadi bisa dipercaya.
 | `python/kontak.py` | **Kontak pertama — verifikasi robot, lengan tidak bergerak** | **jalankan paling awal** |
 | `python/jog.py` | **Gerakkan lengan pakai tombol panah, divalidasi** | **jobdesk koordinat** |
 | `python/pick_place.py` | **Pick & place grid, versi yang sudah benar** | **jobdesk koordinat** |
-| `python/cek.py` | **Cek otomatis 318 item, tanpa robot** | semua |
+| `python/aplikasi.py` | **Aplikasi kontrol di browser: jog, ukur, tandai titik** (pengganti jog.py) | **jobdesk koordinat** |
+| `python/setelan.py` | Satu berkas angka hasil ukur (`setelan-robot.json`) untuk jog, jalur, pick_place | semua |
+| `python/cek.py` | **Cek otomatis 384 item, tanpa robot** | semua |
 | `python/simulasi.py` | Simulator firmware, buat tes offline | semua |
 | `python/jalur.py` | **Middleware: belt + kamera + lengan jadi satu alur sortir** | **integrasi** |
 | `python/kontrak_kamera.py` | Kontrak serah-terima dengan tim kamera (deteksi, piksel/mm) | **integrasi** |
@@ -39,6 +41,55 @@ dari source code firmware**, bukan dari video — jadi bisa dipercaya.
 **Kalau baru pertama pegang:** install `software-robot/Rus-setup-0.2.exe` di
 Windows, colok robot, Sambungkan → Kalibrasi, lalu jog lengannya pakai slider.
 Itu cara paling cepat paham gerakannya sebelum nyentuh Python.
+
+---
+
+## Aplikasi kontrol di browser — `aplikasi.py` (22 Okt 2026)
+
+```bash
+python.exe aplikasi.py          # robot asli (dari terminal WSL pakai python.exe)
+python3   aplikasi.py --sim     # simulator, tanpa robot
+```
+
+Browser terbuka sendiri di `http://127.0.0.1:8765`. Tidak perlu install apa pun
+selain `pyserial`: servernya pustaka bawaan Python, halamannya HTML/CSS/JS biasa
+di `python/aplikasi_web/` (tanpa internet, tanpa CDN).
+
+| Tab | Isi |
+|---|---|
+| Kontrol | Sambung → homing (dengan checklist) → peta tampak atas, vakum, gripper, Selesai, Parkir, Matikan robot |
+| Ukur | Z belt, Z bak, bak koin, bak tutup botol, parkir: jog ke tempatnya lalu **Simpan posisi ini**. Batas fisik. Titik tertanda (hapus per nomor / terakhir / semua) |
+| Preset, Sortir | Belum dibuat (tahap berikutnya) |
+
+Panel jog dan posisi selalu tampil di kiri, jadi bisa jog sambil mengukur.
+Keyboard sama dengan `jog.py` (W/S, A/D, I/K, J/L), plus **Spasi = Berhenti**,
+P, M, V, dan `?` untuk panduan.
+
+**Yang dijaga aplikasi** (semua dites di `cek.py` bagian 22, dua di antaranya
+diuji mutasi: pengamannya dirusak sengaja dan tesnya terbukti gagal):
+
+- Logika gerak **dipakai ulang dari `jog.Jog`**, tidak ditulis ulang: pengaman
+  jangkauan, pembatas percepatan, dan sapuan saat ditahan sama persis.
+- Satu thread pekerja memegang port serial; perintah lain ditolak selagi robot
+  sibuk.
+- Jog tahan butuh **detak** dari browser tiap 100 ms. Tab ditutup / browser hang
+  → jog berhenti sendiri dalam 0,35 s + satu potongan.
+- **Selesai** = pulang ke home, motor tetap terkunci. **Matikan robot** = parkir
+  lalu M18, hanya setelah operator mencentang "sedang memegang lengan".
+- Server hanya di `127.0.0.1` dan setiap POST wajib header `X-RNV3`, jadi
+  perangkat lain di WiFi maupun halaman web lain tidak bisa menggerakkan robot.
+
+**Belum diuji dengan robot asli** — baru simulator + Chrome headless (tahan,
+ketuk, blur, dialog). Uji pertama di robot: jog pelan dengan langkah 0,5 mm.
+
+### Satu berkas setelan — `setelan-robot.json`
+
+Dulu titik parkir ditulis di tiga tempat (`jog.PARKIR`, `jalur.PARKIR_XY` +
+`Z_PARKIR`, `pick_place.Z_PARKIR`). Sekarang Z belt, Z bak, posisi bak, dan
+parkir dibaca dari `python/setelan-robot.json` oleh ketiganya. Berkas belum
+ada = angka bawaan (sama dengan konstanta lama, jadi perilaku tidak berubah).
+Diisi dari tab Ukur. `cek.py` men-set `RNV3_SETELAN=-` supaya tes tidak pernah
+membaca atau menulis berkas ini.
 
 ---
 

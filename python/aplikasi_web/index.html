@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kontrol RNV3</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="atas">
+  <div class="merek">
+    <strong>RNV3</strong>
+    <span id="sambungan" class="sambungan">Belum tersambung</span>
+    <span id="sibuk" class="sibuk" hidden></span>
+  </div>
+  <nav class="tab" role="tablist" aria-label="Bagian aplikasi">
+    <button role="tab" data-tab="kontrol" aria-selected="true">Kontrol</button>
+    <button role="tab" data-tab="ukur" aria-selected="false">Ukur</button>
+    <button role="tab" disabled title="Tahap berikutnya">Preset</button>
+    <button role="tab" disabled title="Setelah kamera dan ESP32 siap">Sortir</button>
+  </nav>
+  <div class="aksi-atas">
+    <button id="tombol-panduan" class="ghost" title="Panduan (tombol ?)">? Panduan</button>
+    <button id="tombol-berhenti" class="berhenti" title="Spasi">Berhenti</button>
+  </div>
+</header>
+
+<div class="kerangka">
+  <!-- Kolom kiri: selalu terlihat di semua tab, supaya bisa jog sambil mengukur -->
+  <aside class="kiri" aria-label="Posisi dan jog">
+    <section class="panel">
+      <h2>Posisi lengan</h2>
+      <dl class="posisi">
+        <div><dt>X</dt><dd id="pos-x">-</dd></div>
+        <div><dt>Y</dt><dd id="pos-y">-</dd></div>
+        <div><dt>Z</dt><dd id="pos-z">-</dd></div>
+        <div><dt>E rel</dt><dd id="pos-e">-</dd></div>
+      </dl>
+      <ul class="status" aria-label="Status robot">
+        <li id="st-homing">Homing: -</li>
+        <li id="st-motor">Motor: -</li>
+        <li id="st-vakum">Vakum: -</li>
+      </ul>
+      <p id="sisa" class="sisa" aria-live="polite"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Jog</h2>
+      <p class="petunjuk">Tekan sekali = langkah kecil. Tahan = jalan terus, lepas = berhenti.</p>
+      <div class="pad pad-lengan" aria-label="Gerak lengan">
+        <span></span>
+        <button data-jog="y" data-arah="1"><kbd>W</kbd>Maju</button>
+        <span></span>
+        <button data-jog="rot" data-arah="-1"><kbd>A</kbd>Putar kiri</button>
+        <span class="pusat" aria-hidden="true">lengan</span>
+        <button data-jog="rot" data-arah="1"><kbd>D</kbd>Putar kanan</button>
+        <span></span>
+        <button data-jog="y" data-arah="-1"><kbd>S</kbd>Mundur</button>
+        <span></span>
+      </div>
+      <div class="pad pad-zrel" aria-label="Tinggi dan rel">
+        <button data-jog="z" data-arah="1"><kbd>I</kbd>Naik</button>
+        <button data-jog="e" data-arah="-1"><kbd>J</kbd>Rel kiri</button>
+        <button data-jog="z" data-arah="-1"><kbd>K</kbd>Turun</button>
+        <button data-jog="e" data-arah="1"><kbd>L</kbd>Rel kanan</button>
+      </div>
+      <details class="setelan-jog">
+        <summary>Setelan jog</summary>
+        <div class="pilih">
+          <span>Langkah tekan sekali (mm)</span>
+          <div id="pilih-step" class="segmen" role="group" aria-label="Langkah"></div>
+        </div>
+        <div class="pilih">
+          <span>Jarak maksimal setelah dilepas (mm)</span>
+          <div id="pilih-sapuan" class="segmen" role="group" aria-label="Sapuan"></div>
+        </div>
+        <div class="pilih">
+          <span>Kehalusan (kecil = lebih halus)</span>
+          <div id="pilih-accel" class="segmen" role="group" aria-label="Kehalusan"></div>
+        </div>
+      </details>
+    </section>
+  </aside>
+
+  <main class="kanan">
+    <!-- TAB KONTROL -->
+    <section id="tab-kontrol" class="isi-tab">
+      <div id="kartu-sambung" class="panel kartu-langkah" hidden>
+        <h2>Sambungkan robot</h2>
+        <p class="peringatan">Saat tersambung, Arduino restart dan <strong>motor lepas</strong>. Kalau lengan sedang tinggi, pegang atau turunkan dulu dengan tangan.</p>
+        <form id="form-sambung" class="baris-form">
+          <label for="isian-port">Port</label>
+          <input id="isian-port" name="port" placeholder="otomatis" autocomplete="off" aria-describedby="bantu-port">
+          <label class="centang"><input type="checkbox" id="isian-sim"> Simulator (tanpa robot)</label>
+          <button type="submit" class="utama">Sambungkan</button>
+        </form>
+        <p id="bantu-port" class="bantu">Kosongkan untuk mencari otomatis, atau isi misalnya COM4. Tutup dulu GUI robot dan Serial Monitor.</p>
+      </div>
+
+      <div id="kartu-homing" class="panel kartu-langkah" hidden>
+        <h2>Homing dulu</h2>
+        <p>Keempat sumbu akan bergerak sendiri mencari titik nol. Centang semua sebelum mulai:</p>
+        <ul class="daftar-cek">
+          <li><label><input type="checkbox" class="cek-homing"> Lengan sudah digeser sedikit ke depan pakai tangan</label></li>
+          <li><label><input type="checkbox" class="cek-homing"> Area sekitar 34 cm dari badan robot dan jalur rel bersih</label></li>
+          <li><label><input type="checkbox" class="cek-homing"> Tangan siap di saklar power</label></li>
+        </ul>
+        <div class="baris-tombol">
+          <button id="tombol-homing" class="utama" disabled>Mulai homing</button>
+          <button data-aksi="putus" class="ghost">Putuskan</button>
+        </div>
+      </div>
+
+      <div id="kartu-kerja" class="kerja" hidden>
+        <figure class="panel peta-wadah">
+          <figcaption>
+            <h2>Peta tampak atas</h2>
+            <span class="bantu">Area biru = bisa dijangkau di tinggi Z sekarang</span>
+          </figcaption>
+          <svg id="peta" viewBox="-400 -440 800 520" role="img" aria-label="Peta jangkauan lengan dari atas"></svg>
+        </figure>
+
+        <div class="tindakan">
+          <section class="panel">
+            <h2>Alat</h2>
+            <div class="baris-tombol">
+              <button id="tombol-vakum" data-perlu="homing" aria-pressed="false"><kbd>V</kbd>Vakum</button>
+              <button data-aksi="gripper" data-isi='{"buka":true}' data-perlu="homing">Gripper buka</button>
+              <button data-aksi="gripper" data-isi='{"buka":false}' data-perlu="homing">Gripper genggam</button>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>Posisi</h2>
+            <div class="baris-tombol">
+              <button data-aksi="posisi" data-perlu="homing"><kbd>P</kbd>Baca dari robot</button>
+              <button data-aksi="tandai" data-perlu="homing"><kbd>M</kbd>Tandai titik</button>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>Selesai kerja</h2>
+            <div class="baris-tombol">
+              <button data-aksi="selesai" data-perlu="homing" class="utama">Selesai, ke home</button>
+              <button data-aksi="parkir" data-perlu="homing">Parkir</button>
+              <button id="tombol-matikan" data-perlu="homing" class="bahaya">Matikan robot</button>
+            </div>
+            <p class="bantu">Selesai = lengan pulang ke home dan motor tetap terkunci. Matikan = parkir rendah lalu motor dilepas, untuk akhir hari.</p>
+          </section>
+          <details class="panel lanjutan">
+            <summary>Lanjutan</summary>
+            <div class="baris-tombol">
+              <button id="tombol-rilis" data-perlu="tersambung" class="bahaya">Rilis motor</button>
+              <button id="tombol-homing-ulang" data-perlu="tersambung">Homing ulang</button>
+              <button data-aksi="putus" data-perlu="tersambung" class="ghost">Putuskan</button>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <section class="panel log-wadah">
+        <h2>Catatan</h2>
+        <ol id="log" class="log" aria-live="polite"></ol>
+      </section>
+    </section>
+
+    <!-- TAB UKUR -->
+    <section id="tab-ukur" class="isi-tab" hidden>
+      <section class="panel">
+        <h2>Angka hasil ukur</h2>
+        <p class="bantu">Jog lengan ke tempatnya, lalu tekan <em>Simpan posisi ini</em>. Disimpan di <code id="berkas-setelan">setelan-robot.json</code> dan langsung dipakai jog, jalur, dan pick_place.</p>
+        <ul id="daftar-ukur" class="daftar-ukur"></ul>
+        <div id="masalah" class="masalah" hidden></div>
+      </section>
+
+      <section class="panel">
+        <h2>Batas fisik</h2>
+        <p class="bantu">Jog pelan ke arah yang mau dibatasi sampai lengan hampir beradu, lalu rekam. Arah yang direkam = arah jog terakhir.</p>
+        <div class="baris-tombol">
+          <button id="tombol-rekam-batas" data-aksi="rekam_batas" data-perlu="homing">Rekam batas arah terakhir</button>
+          <span id="batas-status" class="bantu"></span>
+        </div>
+        <dl id="daftar-batas" class="daftar-batas"></dl>
+      </section>
+
+      <section class="panel">
+        <div class="judul-baris">
+          <h2>Titik tertanda</h2>
+          <div class="baris-tombol">
+            <button data-aksi="tandai" data-perlu="homing"><kbd>M</kbd>Tandai</button>
+            <button id="hapus-centang" disabled>Hapus yang dicentang</button>
+            <button id="hapus-terakhir">Hapus terakhir</button>
+            <button id="hapus-semua" class="bahaya">Hapus semua</button>
+          </div>
+        </div>
+        <p class="bantu">Tersimpan otomatis ke titik-tanda.json. Hilang hanya kalau dihapus.</p>
+        <div class="tabel-gulir">
+          <table class="tabel-titik">
+            <thead><tr><th scope="col"><span class="sr">Pilih</span></th><th scope="col">No</th><th scope="col">X</th><th scope="col">Y</th><th scope="col">Z</th><th scope="col">E</th><th scope="col">Waktu</th></tr></thead>
+            <tbody id="tabel-titik"></tbody>
+          </table>
+        </div>
+        <p id="titik-kosong" class="kosong">Belum ada titik. Jog ke suatu tempat lalu tekan M.</p>
+      </section>
+    </section>
+  </main>
+</div>
+
+<dialog id="dialog" aria-labelledby="dialog-judul">
+  <form method="dialog" class="isi-dialog">
+    <h2 id="dialog-judul"></h2>
+    <div id="dialog-isi"></div>
+    <div class="baris-tombol kanan-rata">
+      <button value="batal" class="ghost">Batal</button>
+      <button value="ya" id="dialog-ya" class="utama">Lanjut</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="panduan" aria-labelledby="panduan-judul">
+  <div class="isi-dialog panduan">
+    <div class="judul-baris">
+      <h2 id="panduan-judul">Panduan</h2>
+      <button id="tutup-panduan" class="ghost">Tutup</button>
+    </div>
+    <h3>Urutan kerja yang aman</h3>
+    <ol>
+      <li><strong>Sambungkan.</strong> Motor lepas saat tersambung, jadi lengan sebaiknya rendah atau dipegang.</li>
+      <li><strong>Homing.</strong> Wajib sebelum gerak apa pun. Setelah homing, lengan bawah tegak dan lengan atas datar.</li>
+      <li><strong>Kerja.</strong> Jog, ukur, tandai titik.</li>
+      <li><strong>Selesai, ke home</strong> kalau masih lanjut nanti. Motor tetap terkunci, lengan tidak jatuh.</li>
+      <li><strong>Matikan robot</strong> di akhir hari: lengan parkir rendah, kamu pegang lengannya, baru motor dilepas. Setelah itu saklar 12V aman dimatikan.</li>
+    </ol>
+    <h3>Tombol keyboard</h3>
+    <dl class="daftar-tombol">
+      <div><dt><kbd>W</kbd> <kbd>S</kbd></dt><dd>maju, mundur</dd></div>
+      <div><dt><kbd>A</kbd> <kbd>D</kbd></dt><dd>putar badan kiri, kanan</dd></div>
+      <div><dt><kbd>I</kbd> <kbd>K</kbd></dt><dd>naik, turun</dd></div>
+      <div><dt><kbd>J</kbd> <kbd>L</kbd></dt><dd>rel kiri, kanan</dd></div>
+      <div><dt><kbd>Spasi</kbd></dt><dd>berhenti</dd></div>
+      <div><dt><kbd>P</kbd></dt><dd>baca posisi dari robot</dd></div>
+      <div><dt><kbd>M</kbd></dt><dd>tandai titik</dd></div>
+      <div><dt><kbd>V</kbd></dt><dd>vakum nyala, mati</dd></div>
+      <div><dt><kbd>?</kbd></dt><dd>panduan ini</dd></div>
+    </dl>
+    <h3>Yang perlu diingat</h3>
+    <ul>
+      <li><strong>Berhenti</strong> tidak bisa memotong gerakan yang sedang jalan. Firmware menyelesaikan gerakan itu dulu, lalu tidak ada gerakan berikutnya. Saat jog, itu paling jauh sepanjang "jarak maksimal setelah dilepas".</li>
+      <li>Robot tidak punya tombol darurat. Satu-satunya pemutus adalah saklar 12V di badan robot.</li>
+      <li>Satu port satu program. Selama aplikasi ini jalan, jangan buka jog.py, GUI robot, atau Serial Monitor.</li>
+      <li>Kalau lengan sempat terbentur atau digeser tangan, lakukan homing ulang. Robot tidak punya sensor posisi, jadi dia tidak tahu kalau posisinya bergeser.</li>
+    </ul>
+    <h3>Cara mengukur</h3>
+    <ul>
+      <li><strong>Z belt dan Z bak:</strong> selipkan selembar kertas di bawah ujung vakum. Turunkan pakai langkah 0,5 mm sampai kertas mulai terjepit, lalu simpan. Jangan sampai menekan.</li>
+      <li><strong>Bak:</strong> ujung vakum tepat di atas tengah bak. Lihat dari atas dan dari samping.</li>
+      <li><strong>Parkir:</strong> 1 sampai 2 cm di atas tempat yang kosong. Bukan di atas bak atau belt.</li>
+    </ul>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

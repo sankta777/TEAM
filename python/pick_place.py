@@ -31,6 +31,7 @@ import argparse
 import sys
 
 import rnv3
+import setelan
 from rnv3 import RNV3, RNV3Error, check_aman, check_path, xy_limits
 
 # ===========================================================================
@@ -60,11 +61,13 @@ F_FAST = 100.0       # kecepatan gerak biasa (mm/s)
 F_SLOW = 30.0        # kecepatan saat turun/naik dekat benda — pelan = presisi
 F_RAIL = 40.0        # rel tidak boleh terlalu cepat, nanti step hilang
 
-Z_PARKIR = -40.0     # ketinggian saat selesai, SEBELUM robot dimatikan.
+_PARKIR = setelan.muat()["parkir"]
+Z_PARKIR = _PARKIR[2]  # ketinggian saat selesai, SEBELUM robot dimatikan.
                      # Jangan berakhir di HOME_Z (138) yang tinggi: stepper
                      # kehilangan daya tahan begitu power dicabut, dan lengan
-                     # jatuh dari ketinggian itu. Samakan dengan PARKIR di
-                     # jog.py; tekan Shift+X di jog.py untuk mengukurnya.
+                     # jatuh dari ketinggian itu. Dari setelan-robot.json --
+                     # satu sumber dengan jog.PARKIR dan jalur.PARKIR_XY.
+PARKIR_XY = tuple(_PARKIR[:2])   # tempat lengan turun ke Z_PARKIR
 
 MATIKAN_SAAT_SELESAI = False  # True = setelah parkir, kirim M18 (motor + kipas
                               # mati) dan lengan jadi loyo. Sengaja False, sama
@@ -268,7 +271,7 @@ def parkir(bot):
         return
     bot.move(z=Z_SAFE, f=F_FAST)
     bot.move(e=rnv3.HOME_E, f=F_RAIL)
-    bot.move(x=rnv3.HOME_X, y=rnv3.HOME_Y, f=F_FAST)
+    bot.move(x=PARKIR_XY[0], y=PARKIR_XY[1], f=F_FAST)
     bot.move(z=Z_PARKIR, f=F_SLOW)
     if MATIKAN_SAAT_SELESAI:
         bot.steppers(False)       # M18: motor + kipas mati, robot diam total

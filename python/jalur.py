@@ -51,6 +51,11 @@ import kalibrasi as mod_kalibrasi
 import kontrak_kamera
 import konveyor as mod_konveyor
 import rnv3
+import setelan
+
+# Angka hasil ukur (belt, bak, parkir) dibaca dari setelan-robot.json -- satu
+# berkas untuk jalur, jog, dan pick_place. Lihat setelan.py.
+_S = setelan.muat()
 
 # ---------------------------------------------------------------------------
 # KONFIGURASI — UKUR DULU DI ROBOT NYATA, jangan percaya angka di bawah ini.
@@ -59,10 +64,11 @@ import rnv3
 PORT = "COM4"            # robot.  Windows: Device Manager > Ports
 ESP_PORT = "COM7"        # ESP32.  port BERBEDA dari robot, gampang tertukar
 
-# Permukaan tempat benda berada. UKUR dengan jog.py: turunkan gripper sampai
-# menyentuh belt, catat Z-nya.
-Z_BELT = -80.0           # permukaan atas belt konveyor
-Z_BAK = -80.0            # permukaan dasar bak keluaran
+# Permukaan tempat benda berada. UKUR di aplikasi (tab Ukur) atau jog.py:
+# turunkan gripper sampai menyentuh belt, catat Z-nya. Nilainya disimpan di
+# setelan-robot.json, bukan di sini.
+Z_BELT = _S["z_belt"]    # permukaan atas belt konveyor
+Z_BAK = _S["z_bak"]      # permukaan dasar bak keluaran
 
 # Zona ambil di belt. Jangkauan robot BERUBAH tergantung Z — divalidasi di
 # validasi_konfigurasi(). Dari CATATAN.md: makin dekat ke badan robot (Y kecil),
@@ -79,9 +85,10 @@ BELT_X_LEBAR = 150.0     # setengah lebar zona ambil yang dipakai kamera
 # JENIS_DEFAULT, jadi salah eja di sini = botol diperlakukan sebagai koin.
 # "tutup_botol" = botol BERDIRI, vakum menempel di tutupnya -> tinggi diukur
 # dari belt ke permukaan tutup (~150 mm, UKUR ULANG dengan botol aslinya).
+# "taruh" = tengah bak, dari setelan-robot.json.
 JENIS = {
-    "tutup_botol": {"tinggi": 150.0, "taruh": (-170.0, 215.0)},
-    "koin":        {"tinggi": 2.0,   "taruh": (-55.0, 300.0)},
+    "tutup_botol": {"tinggi": 150.0, "taruh": tuple(_S["bak"]["tutup_botol"])},
+    "koin":        {"tinggi": 2.0,   "taruh": tuple(_S["bak"]["koin"])},
 }
 JENIS_DEFAULT = "koin"   # dipakai kalau label dari kamera tidak dikenal
 
@@ -93,11 +100,12 @@ Z_SAFE = 80.0            # ketinggian jelajah dasar untuk gripper KOSONG.
                          # Saat menggenggam, pakai z_jelajah() -- benda
                          # menggantung di bawah gripper.
                          # HARUS sama dengan pick_place.Z_SAFE.
-Z_PARKIR = -40.0         # ketinggian SEBELUM robot dimatikan. Lengan jatuh
-                         # karena gravitasi saat daya hilang — parkir rendah
-                         # supaya tidak ada jarak jatuh.
-PARKIR_XY = (0.0, 217.0) # tempat lengan turun ke Z_PARKIR. Sama dengan
-                         # jog.PARKIR dan pick_place.parkir(). WAJIB titik
+Z_PARKIR = _S["parkir"][2]   # ketinggian SEBELUM robot dimatikan. Lengan
+                         # jatuh karena gravitasi saat daya hilang — parkir
+                         # rendah supaya tidak ada jarak jatuh.
+PARKIR_XY = tuple(_S["parkir"][:2])
+                         # tempat lengan turun ke Z_PARKIR. Satu sumber dengan
+                         # jog.PARKIR dan pick_place (setelan-robot.json). WAJIB titik
                          # yang di bawahnya KOSONG -- bukan di atas bak (botol
                          # yang baru ditaruh tingginya sampai Z=+70) dan bukan
                          # di atas belt. Cek dengan mata di lokasi.

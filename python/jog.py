@@ -32,6 +32,7 @@ import time
 
 import kontak
 import rnv3
+import setelan
 from rnv3 import RNV3, RNV3Error, check_path, check_reach
 
 STEPS = [0.5, 1.0, 5.0, 10.0, 25.0]      # mm, dipilih tombol 1..5
@@ -79,10 +80,11 @@ URUT_PROFIL = [PROFIL_KOSINUS, PROFIL_ARCTAN, PROFIL_DATAR]
 NAMA_PROFIL = {PROFIL_KOSINUS: "kosinus", PROFIL_ARCTAN: "arctan",
                PROFIL_DATAR: "datar"}
 
-# Titik parkir sebelum robot dimatikan. SENGAJA konservatif -- ruang di bawah
-# lengan belum diukur. Jog ke tempat yang pas lalu tekan Shift+X untuk
-# mendapatkan baris pengganti yang bisa ditempel ke sini.
-PARKIR = (0.0, 217.0, -40.0, 0.0)       # X, Y, Z, E
+# Titik parkir sebelum robot dimatikan, dari setelan-robot.json (satu sumber
+# dengan jalur.py dan pick_place.py). Bawaannya SENGAJA konservatif -- ruang
+# di bawah lengan belum diukur. Ukur di aplikasi (tab Ukur, "Parkir"). Shift+X
+# di sini hanya mengganti titik parkir untuk sesi jog yang sedang berjalan.
+PARKIR = (*setelan.muat()["parkir"], 0.0)       # X, Y, Z, E
 
 # True = setelah parkir, matikan motor (M18): stepper berhenti menarik arus
 # tahan dan kipas ikut mati (setStepperEnable() di firmware mematikan keduanya
@@ -634,8 +636,9 @@ class Jog:
         b = self.bot
         self.parkir_titik = (b.x, b.y, b.z, b.e)
         print(f"\n  titik parkir -> X{b.x:.1f} Y{b.y:.1f} Z{b.z:.1f} E{b.e:.1f}")
-        print("  tempel baris ini ke atas jog.py supaya permanen:")
-        print(f"    PARKIR = ({b.x:.1f}, {b.y:.1f}, {b.z:.1f}, {b.e:.1f})\n")
+        print("  berlaku untuk sesi ini saja. Supaya permanen (dan dipakai")
+        print("  jalur.py + pick_place.py juga), simpan lewat aplikasi:")
+        print("  tab Ukur -> Parkir -> 'Simpan posisi ini'.\n")
 
     def rekam_batas(self):
         """Rekam posisi sekarang sebagai batas fisik untuk arah terakhir dijog.

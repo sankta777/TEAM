@@ -25,6 +25,13 @@ import re as _re
 import sys
 import time as _t
 
+# Tes TIDAK boleh membaca setelan-robot.json milik pengguna: jalur/jog/
+# pick_place membacanya saat DIIMPOR, jadi ini wajib diset sebelum impor.
+os.environ["RNV3_SETELAN"] = "-"
+# Dicatat sebelum tes jalan, supaya bisa dibuktikan tes tidak membuatnya.
+_ada_setelan_pengguna = os.path.exists(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "setelan-robot.json"))
+
 import esp as mod_esp
 import jalur
 import jog as jg
@@ -1843,6 +1850,288 @@ cek("jogging bawaan: lalu-lintas serial TIDAK tercetak di sela gerakan",
 _kode, _isi = _jalankan_jog("--ramai")
 cek("--ramai: lalu-lintas serial tetap tercetak untuk debug",
     _kode == 0 and ">> G0" in _isi and "<< ok" in _isi, f"kode={_kode}")
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("21. setelan.py -- satu berkas angka hasil ukur untuk semua program")
+print("=" * 68)
+import json as _json
+import tempfile as _tempfile
+import warnings as _warnings
+
+import setelan
+
+cek("RNV3_SETELAN=- : tes tidak membaca berkas milik pengguna",
+    setelan.berkas_aktif() is None)
+cek("jalur/jog/pick_place memakai angka BAWAAN selama tes",
+    jalur.Z_BELT == setelan.BAWAAN["z_belt"]
+    and jalur.PARKIR_XY == tuple(setelan.BAWAAN["parkir"][:2])
+    and jg.PARKIR[:3] == tuple(setelan.BAWAAN["parkir"])
+    and pp.Z_PARKIR == setelan.BAWAAN["parkir"][2]
+    and jalur.JENIS["koin"]["taruh"] == tuple(setelan.BAWAAN["bak"]["koin"]))
+cek("BAWAAN sama dengan konstanta lama (perilaku tidak berubah sebelum diukur)",
+    setelan.BAWAAN["parkir"] == [0.0, 217.0, -40.0]
+    and setelan.BAWAAN["z_belt"] == -80.0
+    and setelan.BAWAAN["bak"]["tutup_botol"] == [-170.0, 215.0])
+
+_tmp_setelan = _tempfile.mkdtemp(prefix="cek-setelan-")
+_berkas_s = os.path.join(_tmp_setelan, "s.json")
+_isi = setelan.isi_dari_posisi(setelan.muat(_berkas_s), "parkir", 12.345, 230.0, -35.5,
+                               waktu="2026-10-22 10:00")
+setelan.simpan(_isi, _berkas_s)
+_balik = setelan.muat(_berkas_s)
+cek("simpan -> muat bolak-balik utuh",
+    _balik["parkir"] == [12.35, 230.0, -35.5]
+    and _balik["diukur"] == {"parkir": "2026-10-22 10:00"}
+    and _balik["z_belt"] == setelan.BAWAAN["z_belt"], str(_balik))
+cek("simpan atomik: tidak ada berkas .tmp tertinggal",
+    not os.path.exists(_berkas_s + ".tmp"))
+
+for _nama, _rusak in [("parkir 2 angka", {"parkir": [0, 217]}),
+                      ("z_belt teks", {"z_belt": "-80"}),
+                      ("z_bak boolean", {"z_bak": True}),
+                      ("bak bukan objek", {"bak": [1, 2]})]:
+    try:
+        setelan.rapikan(_rusak)
+        cek(f"setelan rusak ditolak: {_nama}", False)
+    except ValueError:
+        cek(f"setelan rusak ditolak: {_nama}", True)
+
+with open(_berkas_s, "w", encoding="utf-8") as _f:
+    _f.write("{ini bukan json")
+with _warnings.catch_warnings(record=True) as _w:
+    _warnings.simplefilter("always")
+    _hasil_rusak = setelan.muat(_berkas_s)
+cek("berkas rusak -> BAWAAN + peringatan, bukan crash",
+    _hasil_rusak == setelan.BAWAAN and any("bawaan" in str(x.message) for x in _w))
+cek("berkas tidak ada -> BAWAAN tanpa ribut",
+    setelan.muat(os.path.join(_tmp_setelan, "tidak-ada.json")) == setelan.BAWAAN)
+
+setelan.terapkan(setelan.rapikan({"z_belt": -70.0, "parkir": [50.0, 230.0, -30.0],
+                                  "bak": {"koin": [-60.0, 290.0]}}))
+cek("terapkan() memasang angka baru ke modul yang sudah diimpor",
+    jalur.Z_BELT == -70.0 and jalur.PARKIR_XY == (50.0, 230.0)
+    and jalur.Z_PARKIR == -30.0 and jalur.JENIS["koin"]["taruh"] == (-60.0, 290.0)
+    and jg.PARKIR == (50.0, 230.0, -30.0, 0.0)
+    and pp.PARKIR_XY == (50.0, 230.0) and pp.Z_PARKIR == -30.0)
+_bps = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    _bps.home()
+    pp.parkir(_bps)
+cek("pick_place.parkir() memakai XY parkir dari setelan, bukan HOME",
+    (_bps.x, _bps.y, _bps.z) == (50.0, 230.0, -30.0), f"{_bps.x},{_bps.y},{_bps.z}")
+setelan.terapkan(setelan.BAWAAN)
+cek("terapkan(BAWAAN) memulihkan semua modul",
+    jalur.Z_BELT == -80.0 and jalur.PARKIR_XY == (0.0, 217.0)
+    and jg.PARKIR == (0.0, 217.0, -40.0, 0.0) and pp.PARKIR_XY == (0.0, 217.0))
+cek("validasi_konfigurasi tetap bersih dengan BAWAAN",
+    jalur.validasi_konfigurasi(cetak=False) == [])
+try:
+    setelan.simpan(setelan.BAWAAN)
+    cek("simpan tanpa berkas saat RNV3_SETELAN=- ditolak", False)
+except RuntimeError:
+    cek("simpan tanpa berkas saat RNV3_SETELAN=- ditolak", True)
+cek("berkas setelan milik pengguna tidak dibuat oleh tes",
+    _ada_setelan_pengguna == os.path.exists(setelan.BERKAS_DEFAULT))
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("22. aplikasi.py -- kontrol lewat browser (simulator)")
+print("=" * 68)
+import http.client as _http
+import time as _waktu   # _t ditimpa jadi teks di bagian lain
+import aplikasi
+
+
+def _app_baru():
+    d = _tempfile.mkdtemp(prefix="cek-aplikasi-")
+    return aplikasi.Pengendali(
+        buat_robot=lambda port, sim: simulasi.robot_palsu(),
+        berkas_setelan=os.path.join(d, "setelan.json"),
+        # jeda_sim: simulator menjawab seketika; tanpa jeda, "tahan 0,8 s"
+        # menyapu ratusan mm dan tes jarak jadi tidak bermakna.
+        berkas_titik=os.path.join(d, "titik.json"), jeda_sim=True), d
+
+
+def _log(p):
+    return " | ".join(b["teks"] for b in p.log.sejak(0))
+
+
+def _tidur(detik):
+    _waktu.sleep(detik)
+
+
+app, _dir_app = _app_baru()
+app.kirim("jog", {"sumbu": "y", "arah": 1, "token": "x"})
+app.tunggu_selesai()
+cek("jog sebelum tersambung ditolak dengan alasan", "belum tersambung" in _log(app))
+
+app.kirim("sambung", {"sim": True})
+app.tunggu_selesai()
+_s = app.status()
+cek("sambung: tersambung tapi wajib homing dulu",
+    _s["tersambung"] and _s["perlu_homing"] and "PRA-TERBANG" in _log(app))
+app.kirim("jog", {"sumbu": "y", "arah": 1, "token": "x"})
+app.tunggu_selesai()
+cek("jog sebelum homing ditolak", "homing dulu" in _log(app)
+    and not any(c.startswith("G0") for c in app.bot.sim.log_perintah))
+
+app.kirim("homing")
+app.tunggu_selesai()
+_s = app.status()
+cek("homing: siap gerak, motor terkunci",
+    not _s["perlu_homing"] and _s["motor_terkunci"] and _s["posisi_dipercaya"])
+cek("status membawa peta jangkauan di Z sekarang",
+    _s["peta"]["rmax"][len(_s["peta"]["sudut"]) // 2] is not None)
+
+_y0 = app.bot.y
+app.kirim("jog", {"sumbu": "y", "arah": 1, "token": "ketuk"})
+app.kirim("jog_lepas", {"token": "ketuk"})
+app.tunggu_selesai()
+cek("ketuk = tepat satu langkah presisi (0,5 mm)",
+    abs(app.bot.y - _y0 - jg.STEPS[0]) < 1e-6, f"{app.bot.y - _y0:.3f}")
+
+# "lepas" menyalip "jog": tetap satu langkah walau detak terus datang
+_y0 = app.bot.y
+app.kirim("jog_lepas", {"token": "salip"})
+app.kirim("jog", {"sumbu": "y", "arah": 1, "token": "salip"})
+_akhir = _waktu.monotonic() + 0.7
+while _waktu.monotonic() < _akhir:
+    app.kirim("jog_detak", {"token": "salip"})
+    _tidur(0.05)
+app.tunggu_selesai()
+cek("lepas yang tiba duluan tetap dihormati (cuma satu langkah)",
+    abs(app.bot.y - _y0 - jg.STEPS[0]) < 1e-6, f"{app.bot.y - _y0:.3f}")
+
+# tahan dengan detak -> sapuan; lepas -> berhenti
+_z0 = app.bot.z
+app.kirim("jog", {"sumbu": "z", "arah": -1, "token": "tahan"})
+_akhir = _waktu.monotonic() + 0.8
+while _waktu.monotonic() < _akhir:
+    app.kirim("jog_detak", {"token": "tahan"})
+    _tidur(0.05)
+try:
+    app.kirim("homing")
+    cek("perintah lain ditolak selagi jog berjalan", False)
+except aplikasi.AplikasiError:
+    cek("perintah lain ditolak selagi jog berjalan", True)
+app.kirim("jog_lepas", {"token": "tahan"})
+app.tunggu_selesai()
+_z1 = app.bot.z
+_tidur(0.3)
+cek("tahan = sapuan (lebih dari satu langkah)", _z0 - _z1 > 5.0, f"{_z0 - _z1:.1f}")
+cek("setelah lepas tidak ada gerakan lagi", app.bot.z == _z1)
+
+# tahan TANPA detak (tab ditutup / browser hang) -> berhenti sendiri
+app.kirim("jog", {"sumbu": "z", "arah": -1, "token": "yatim"})
+_ok_henti = app.tunggu_selesai(3.0)
+_z2 = app.bot.z
+_tidur(0.3)
+cek("tanpa detak dari browser, jog berhenti sendiri", _ok_henti and app.bot.z == _z2,
+    f"selesai={_ok_henti}")
+cek("...dan tidak jauh (paling banyak satu sapuan + langkah)",
+    _z1 - _z2 <= jg.SAPUAN_PILIHAN[-1] + jg.STEPS[0] + 1e-6, f"{_z1 - _z2:.1f}")
+
+# berhenti di tengah tahan
+app.kirim("jog", {"sumbu": "z", "arah": 1, "token": "henti"})
+app.kirim("jog_detak", {"token": "henti"})
+app.kirim("berhenti")
+cek("tombol Berhenti menghentikan jog yang ditahan", app.tunggu_selesai(2.0))
+
+# matikan butuh konfirmasi, dan ditolak SEBELUM masuk antrean
+try:
+    app.kirim("matikan", {})
+    cek("matikan tanpa konfirmasi 'dipegang' ditolak langsung", False)
+except aplikasi.AplikasiError:
+    cek("matikan tanpa konfirmasi 'dipegang' ditolak langsung",
+        app.bot.sim.steppers_on is True)
+
+# selesai = home + motor tetap terkunci
+app.kirim("selesai")
+app.tunggu_selesai()
+cek("selesai: lengan di home",
+    (app.bot.x, app.bot.y, app.bot.z, app.bot.e)
+    == (rnv3.HOME_X, rnv3.HOME_Y, rnv3.HOME_Z, rnv3.HOME_E))
+cek("selesai: motor TETAP terkunci, tidak ada M18",
+    app.bot.sim.steppers_on is True
+    and "M18" not in [c.upper().replace(" ", "") for c in app.bot.sim.log_perintah])
+
+# ukur: simpan ke berkas sendiri, langsung dipakai modul lain
+app.kirim("jog", {"sumbu": "z", "arah": -1, "token": "u"})
+app.kirim("jog_lepas", {"token": "u"})
+app.tunggu_selesai()
+app.kirim("ukur_simpan", {"kunci": "z_belt"})
+app.tunggu_selesai()
+with open(app.berkas_setelan, encoding="utf-8") as _f:
+    _tersimpan = _json.load(_f)
+cek("ukur: Z belt tersimpan dari posisi lengan",
+    _tersimpan["z_belt"] == round(app.bot.z, 2) and "z_belt" in _tersimpan["diukur"])
+cek("ukur: jalur.Z_BELT langsung ikut berubah", jalur.Z_BELT == round(app.bot.z, 2))
+cek("ukur: masalah konfigurasi dilaporkan (Z belt setinggi ini tidak masuk akal)",
+    len(app.status()["masalah"]) > 0)
+setelan.terapkan(setelan.BAWAAN)
+
+# titik tertanda: tambah, hapus nomor tertentu, hapus semua
+for _ in range(4):
+    app.kirim("tandai")
+app.kirim("hapus_titik", {"nomor": [2, 4]})
+with open(app.berkas_titik, encoding="utf-8") as _f:
+    _titik_berkas = _json.load(_f)
+cek("hapus nomor 2 dan 4 dari 4 titik -> sisa 2, tersimpan ke berkas",
+    len(app.titik) == 2 and len(_titik_berkas) == 2)
+try:
+    app.kirim("hapus_titik", {"nomor": [9]})
+    cek("hapus nomor yang tidak ada ditolak", False)
+except aplikasi.AplikasiError:
+    cek("hapus nomor yang tidak ada ditolak", len(app.titik) == 2)
+app.kirim("hapus_titik", {"semua": True})
+cek("hapus semua -> 0", app.titik == [])
+
+# matikan dengan konfirmasi: parkir dulu, baru M18
+app.kirim("matikan", {"dipegang": True})
+app.tunggu_selesai()
+cek("matikan: parkir di titik setelan, lalu motor dilepas",
+    app.bot.z == setelan.BAWAAN["parkir"][2] and app.bot.sim.steppers_on is False
+    and app.status()["perlu_homing"])
+
+# HTTP
+_srv = aplikasi.buat_server(app, 0)
+_port = _srv.server_address[1]
+_th = __import__("threading").Thread(target=_srv.serve_forever, daemon=True)
+_th.start()
+
+
+def _minta(metode, path, isi=None, header=None):
+    k = _http.HTTPConnection("127.0.0.1", _port, timeout=5)
+    k.request(metode, path, body=None if isi is None else _json.dumps(isi),
+              headers=header or {})
+    r = k.getresponse()
+    data = r.read()
+    k.close()
+    return r.status, r.getheader("Content-Type") or "", data
+
+
+_kode, _jenis, _data = _minta("GET", "/api/status")
+cek("HTTP: /api/status menjawab JSON", _kode == 200 and _json.loads(_data)["tersambung"])
+for _nama in ("index.html", "app.css", "app.js"):
+    _kode, _jenis, _ = _minta("GET", "/" + _nama)
+    cek(f"HTTP: {_nama} tersaji", _kode == 200 and _jenis.split(";")[0] in
+        ("text/html", "text/css", "text/javascript"))
+_kode, _, _ = _minta("POST", "/api/perintah", {"aksi": "homing"})
+cek("HTTP: POST tanpa header X-RNV3 ditolak (403)", _kode == 403)
+_kode, _, _ = _minta("POST", "/api/perintah", {"aksi": "hancurkan"}, {"X-RNV3": "1"})
+cek("HTTP: aksi tak dikenal ditolak (409)", _kode == 409)
+for _p in ("/..%2Faplikasi.py", "/../aplikasi.py", "/sub/app.js", "/.git"):
+    _kode, _, _ = _minta("GET", _p)
+    cek(f"HTTP: {_p} tidak disajikan", _kode == 404)
+cek("HTTP: server hanya mendengar di 127.0.0.1", _srv.server_address[0] == "127.0.0.1")
+_srv.shutdown()
+_srv.server_close()
+app.tutup()
 
 
 print()
