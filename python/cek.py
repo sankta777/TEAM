@@ -691,12 +691,27 @@ cek("keluar PARKIR rendah, bukan pulang ke home yang tinggi",
 cek("titik parkir lebih rendah dari home (biar jatuhnya sedikit)",
     j4.parkir_titik[2] < rnv3.HOME_Z,
     f"Z parkir {j4.parkir_titik[2]} vs home {rnv3.HOME_Z}")
-cek("keluar MEMATIKAN motor & kipas (M18) setelah parkir",
-    "M18" in [c.upper().replace(" ", "") for c in bj4.sim.log_perintah])
-cek("M18 dikirim SETELAH parkir, bukan sebelumnya",
-    [c.upper().replace(" ", "") for c in bj4.sim.log_perintah].index("M18") >
-    max(i for i, c in enumerate(bj4.sim.log_perintah) if c.startswith("G0")))
-cek("simulator mencatat stepper mati", bj4.sim.steppers_on is False)
+cek("keluar (default) TIDAK mengirim M18 -- lengan tidak jatuh",
+    "M18" not in [c.upper().replace(" ", "") for c in bj4.sim.log_perintah])
+cek("keluar (default) motor tetap terkunci", bj4.sim.steppers_on is True)
+
+# Perilaku lama tetap benar kalau flag dinyalakan lagi.
+bj5 = simulasi.robot_palsu()
+_flag_lama = jg.MATIKAN_SAAT_KELUAR
+jg.MATIKAN_SAAT_KELUAR = True
+try:
+    with _hening(_io.StringIO()):
+        bj5.home()
+        j5 = jg.Jog(bj5)
+        j5.bersih_bersih()
+finally:
+    jg.MATIKAN_SAAT_KELUAR = _flag_lama
+cek("flag True: keluar MEMATIKAN motor & kipas (M18) setelah parkir",
+    "M18" in [c.upper().replace(" ", "") for c in bj5.sim.log_perintah])
+cek("flag True: M18 dikirim SETELAH parkir, bukan sebelumnya",
+    [c.upper().replace(" ", "") for c in bj5.sim.log_perintah].index("M18") >
+    max(i for i, c in enumerate(bj5.sim.log_perintah) if c.startswith("G0")))
+cek("flag True: simulator mencatat stepper mati", bj5.sim.steppers_on is False)
 
 # gripper memakai rentang robot
 bj5 = simulasi.robot_palsu()
@@ -1191,7 +1206,8 @@ cek("tes tidak MENGUBAH berkas kalibrasi sungguhan (isolasi)",
     "berkas kalibrasi berubah / dibuat oleh pengujian")
 
 # ---- matikan robot setelah parkir ----
-cek("MATIKAN_SAAT_KELUAR aktif secara default", jg.MATIKAN_SAAT_KELUAR is True)
+cek("MATIKAN_SAAT_KELUAR mati secara default (lengan tetap terkunci saat ESC)",
+    jg.MATIKAN_SAAT_KELUAR is False)
 cek("pick_place juga mematikan saat selesai", pp.MATIKAN_SAAT_SELESAI is True)
 
 # posisi tak diketahui -> JANGAN matikan (lengan bisa sedang tinggi)

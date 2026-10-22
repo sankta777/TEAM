@@ -558,6 +558,17 @@ ratusan milidetik dan memastikan tangganya tetap naik sampai sapuan maksimum.
 
 ### Mematikan robot setelah parkir
 
+**Sejak 22 Okt 2026: default-nya motor TIDAK dimatikan** (`MATIKAN_SAAT_KELUAR =
+False` di `jog.py`). Di lapangan lengan jatuh dan terbentur setiap kali ESC,
+karena titik `PARKIR` belum pernah diukur — "turun cuma beberapa milimeter"
+tidak terjamin. Sekarang `Q`/`ESC` → lengan parkir → **motor tetap terkunci**,
+lengan menahan posisi. Motor baru lepas saat saklar 12V dimatikan, atau saat
+port serial dibuka lagi (Arduino reset, `setup()` memanggil
+`setStepperEnable(false)`) — dan saat itu lengan sudah di parkir yang rendah.
+Pegang lengannya waktu mematikan saklar.
+
+Perilaku lama di bawah ini masih ada kalau flag diset `True`:
+
 Tekan `Q` atau `ESC` → lengan parkir rendah → **motor dan kipas langsung
 dimatikan** (`M18`). Robot jadi diam total dan saklar fisiknya aman ditekan.
 

@@ -84,16 +84,20 @@ NAMA_PROFIL = {PROFIL_KOSINUS: "kosinus", PROFIL_ARCTAN: "arctan",
 # mendapatkan baris pengganti yang bisa ditempel ke sini.
 PARKIR = (0.0, 217.0, -40.0, 0.0)       # X, Y, Z, E
 
-# Setelah parkir, matikan motor (M18) supaya robot benar-benar diam: stepper
-# berhenti menarik arus tahan dan kipas ikut mati (setStepperEnable() di
-# firmware mematikan keduanya sekaligus).
+# True = setelah parkir, matikan motor (M18): stepper berhenti menarik arus
+# tahan dan kipas ikut mati (setStepperEnable() di firmware mematikan keduanya
+# sekaligus). Lengan jadi loyo.
 #
-# Lengan jadi loyo setelah ini -- tapi karena sudah parkir rendah, turunnya
-# cuma beberapa milimeter. Justru itu gunanya parkir rendah.
+# Sengaja False: PARKIR di atas belum pernah diukur, jadi "turun cuma beberapa
+# milimeter" itu tidak terjamin -- di lapangan lengan jatuh dan terbentur
+# setiap kali ESC. Dengan False lengan tetap terkunci di titik parkir; motor
+# baru lepas saat saklar 12V dimatikan atau saat port dibuka lagi (Arduino
+# reset -> setup() memanggil setStepperEnable(false)), dan saat itu lengan
+# sudah rendah.
 #
 # CATATAN: ini TIDAK memutus listrik 220V/12V. Dari software hanya motor dan
 # kipas yang bisa dimatikan; saklar fisiknya tetap perlu ditekan sendiri.
-MATIKAN_SAAT_KELUAR = True
+MATIKAN_SAAT_KELUAR = False
 
 
 def speed_halus(dist_mm, a_target):
