@@ -266,12 +266,11 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--aksen); 
   padding: 10px 12px;
 }
 .daftar-ukur .nama { font-weight: 650; }
-.daftar-ukur .ket { grid-column: 1; color: var(--tinta-2); font-size: 12.5px; }
-.daftar-ukur .nilai { font: 600 14px var(--mono); text-align: right; grid-row: 1 / span 2; grid-column: 2; }
+.daftar-ukur .nilai { font: 600 14px var(--mono); text-align: right; }
 .daftar-ukur .lencana { display: block; font: 11.5px var(--sans); font-weight: 500; margin-top: 2px; }
-.lencana.tebakan { color: var(--waspada); }
+.daftar-ukur .lencana:empty { display: none; }
 .lencana.terukur { color: var(--aman); }
-.daftar-ukur .baris-tombol { grid-row: 1 / span 2; grid-column: 3; justify-content: flex-end; }
+.daftar-ukur .baris-tombol { justify-content: flex-end; }
 
 .masalah { margin-top: 12px; background: var(--bahaya-lembut); color: var(--bahaya); border-radius: var(--sudut); padding: 10px 12px; font-size: 12.5px; }
 .masalah ul { margin: 6px 0 0; padding-left: 18px; }
@@ -321,7 +320,7 @@ dialog::backdrop { background: rgba(14, 14, 20, 0.45); }
   .tab { grid-column: 1 / -1; grid-row: 2; justify-self: start; overflow-x: auto; max-width: 100%; }
   .kerangka { grid-template-columns: 1fr; padding: 12px 16px; }
   .daftar-ukur li { grid-template-columns: 1fr; }
-  .daftar-ukur .nilai, .daftar-ukur .baris-tombol { grid-row: auto; grid-column: 1; text-align: left; justify-content: flex-start; }
+  .daftar-ukur .nilai, .daftar-ukur .baris-tombol { text-align: left; justify-content: flex-start; }
   .daftar-tombol { grid-template-columns: 1fr; }
 }
 

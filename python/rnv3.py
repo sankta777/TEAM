@@ -36,7 +36,7 @@ EE_OFFSET = 77.0           # bearing lengan atas -> tengah end effector (mm)
 
 Z_MIN = -140.0             # ujung tool paling bawah
 Z_MAX = LOW_SHANK + 70.0   # = 210.0
-RAIL_LENGTH = 355.0        # panjang rel; 0 = ujung kiri
+RAIL_LENGTH = 355.0        # panjang rel; 0 = ujung KANAN dilihat dari operator
 
 # Robot kelompok ini PAKAI rel, jadi sumbu E aktif.
 # Cara verifikasi di robot sungguhan: kirim M119, lihat balasannya.

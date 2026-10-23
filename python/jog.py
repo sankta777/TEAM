@@ -164,7 +164,7 @@ ARAH = {
 BANTUAN = """
   GERAK   tekan sekali = presisi, tahan = sapuan mulus
     W / S   Y maju / mundur          A / D   putar badan kiri / kanan
-    I / K   Z naik / turun           J / L   rel kiri / kanan
+    I / K   Z naik / turun           J / L   rel kanan / kiri
     (panah dan PgUp/PgDn tetap jalan)
 
   HALUSKAN   ubah sambil jalan, langsung terasa
@@ -197,7 +197,9 @@ NAMA_ARAH = {("rot", 1): "putar kanan", ("rot", -1): "putar kiri",
              ("x", 1): "X+ kanan", ("x", -1): "X- kiri",
              ("y", 1): "Y+ maju", ("y", -1): "Y- mundur",
              ("z", 1): "Z+ naik", ("z", -1): "Z- turun",
-             ("e", 1): "E+ rel kanan", ("e", -1): "E- rel kiri"}
+             # Kiri/kanan dilihat dari posisi operator: E- (menuju E=0)
+             # bergerak ke KANAN -- laporan operator di robot nyata, 23 Okt 2026.
+             ("e", 1): "E+ rel kiri", ("e", -1): "E- rel kanan"}
 
 
 # A/D dulu menggeser X kartesian dengan Y tetap. Akibatnya radius ujung tool

@@ -16,11 +16,11 @@ const KUNCI_JOG = {
 };
 
 const UKUR = [
-  { kunci: "z_belt", nama: "Z belt", ket: "Ujung vakum menyentuh belt (kertas mulai terjepit).", pergi: false },
-  { kunci: "z_bak", nama: "Z bak", ket: "Ujung vakum menyentuh dasar bak.", pergi: false },
-  { kunci: "bak_koin", nama: "Bak koin", ket: "Tepat di atas tengah bak koin.", pergi: true },
-  { kunci: "bak_tutup_botol", nama: "Bak tutup botol", ket: "Tepat di atas tengah bak tutup botol.", pergi: true },
-  { kunci: "parkir", nama: "Parkir", ket: "1 sampai 2 cm di atas tempat kosong. Bukan di atas bak atau belt.", pergi: true },
+  { kunci: "z_belt", nama: "Z belt", pergi: false },
+  { kunci: "z_bak", nama: "Z bak", pergi: false },
+  { kunci: "bak_koin", nama: "Bak koin", pergi: true },
+  { kunci: "bak_tutup_botol", nama: "Bak tutup botol", pergi: true },
+  { kunci: "parkir", nama: "Parkir", pergi: true },
 ];
 
 // ---------------------------------------------------------------- server
@@ -415,7 +415,6 @@ function gambarPeta() {
 // ---------------------------------------------------------------- ukur
 function gambarUkur() {
   const s = S.setelan;
-  $("#berkas-setelan").textContent = (S.setelan_berkas || "setelan-robot.json").split(/[\\/]/).pop();
   const bisaGerak = bolehGerak();
 
   const kunciUkur = JSON.stringify([s, bisaGerak]);
@@ -435,15 +434,12 @@ function gambarUkur() {
       const waktu = s.diukur[u.kunci];
       li.innerHTML = `
         <span class="nama"></span>
-        <span class="ket"></span>
-        <span class="nilai"><span class="angka"></span><span class="lencana"></span></span>
+        <span class="nilai"><span class="angka"></span><span class="lencana terukur"></span></span>
         <span class="baris-tombol"></span>`;
       li.querySelector(".nama").textContent = u.nama;
-      li.querySelector(".ket").textContent = u.ket;
       li.querySelector(".angka").textContent = nilai;
-      const lencana = li.querySelector(".lencana");
-      lencana.textContent = waktu ? `terukur ${waktu}` : "masih tebakan";
-      lencana.classList.add(waktu ? "terukur" : "tebakan");
+      // Hanya angka yang SUDAH diukur yang diberi keterangan; yang belum, kosong.
+      if (waktu) li.querySelector(".lencana").textContent = `terukur ${waktu}`;
       const tombol = li.querySelector(".baris-tombol");
       const simpan = document.createElement("button");
       simpan.textContent = "Simpan posisi ini";
@@ -513,10 +509,13 @@ function gambarUkur() {
       d.append(dt, dd);
       dl.append(d);
     }
-    const arah = S.jog && S.jog.sisa ? S.jog.sisa[0] : null;
-    $("#batas-status").textContent = (S.batas_terukur ? "Sudah pernah direkam. " : "Masih tebakan. ")
-      + (arah ? `Arah terakhir: ${arah}.` : "Jog dulu ke arah yang mau dibatasi.");
   }
+  // Arah yang akan direkam ditulis DI tombolnya: salah arah = pagar di sisi
+  // yang salah. Tanpa arah (belum pernah jog) tombolnya redup.
+  const arah = S.jog && S.jog.sisa ? S.jog.sisa[0] : null;
+  const rekam = $("#tombol-rekam-batas");
+  rekam.textContent = arah ? `Rekam batas: ${arah}` : "Rekam batas";
+  rekam.disabled = !bisaGerak || !arah;
 
   // titik tertanda
   const kunciTitik = JSON.stringify(S.titik);

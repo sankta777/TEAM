@@ -60,9 +60,9 @@
       </div>
       <div class="pad pad-zrel" aria-label="Tinggi dan rel">
         <button data-jog="z" data-arah="1"><kbd>I</kbd>Naik</button>
-        <button data-jog="e" data-arah="-1"><kbd>J</kbd>Rel kiri</button>
+        <button data-jog="e" data-arah="-1"><kbd>J</kbd>Rel kanan</button>
         <button data-jog="z" data-arah="-1"><kbd>K</kbd>Turun</button>
-        <button data-jog="e" data-arah="1"><kbd>L</kbd>Rel kanan</button>
+        <button data-jog="e" data-arah="1"><kbd>L</kbd>Rel kiri</button>
       </div>
       <details class="setelan-jog">
         <summary>Setelan jog</summary>
@@ -98,8 +98,6 @@
       </div>
 
       <div id="kartu-homing" class="panel kartu-langkah" hidden>
-        <h2>Homing dulu</h2>
-        <p>Keempat sumbu akan bergerak sendiri mencari titik nol. Sebelum START: geser lengan sedikit ke depan, pastikan area sekitar 34 cm dan jalur rel bersih, tangan siap di saklar power.</p>
         <div class="baris-tombol">
           <button id="tombol-homing" class="utama">START</button>
           <button data-aksi="putus" class="ghost">Putuskan</button>
@@ -161,20 +159,19 @@
     <section id="tab-ukur" class="isi-tab" hidden>
       <section class="panel">
         <h2>Angka hasil ukur</h2>
-        <p class="bantu">Jog lengan ke tempatnya, lalu tekan <em>Simpan posisi ini</em>. Disimpan di <code id="berkas-setelan">setelan-robot.json</code> dan langsung dipakai jog, jalur, dan pick_place.</p>
         <ul id="daftar-ukur" class="daftar-ukur"></ul>
         <div id="masalah" class="masalah" hidden></div>
       </section>
 
-      <section class="panel">
-        <h2>Batas fisik</h2>
-        <p class="bantu">Jog pelan ke arah yang mau dibatasi sampai lengan hampir beradu, lalu rekam. Arah yang direkam = arah jog terakhir.</p>
+      <!-- Setelan sekali-pakai: dilipat supaya tampilan sehari-hari bersih.
+           Penjelasannya ada di Panduan. -->
+      <details class="panel lanjutan">
+        <summary>Lanjutan: batas fisik</summary>
         <div class="baris-tombol">
-          <button id="tombol-rekam-batas" data-aksi="rekam_batas" data-perlu="homing">Rekam batas arah terakhir</button>
-          <span id="batas-status" class="bantu"></span>
+          <button id="tombol-rekam-batas" data-aksi="rekam_batas" data-perlu="homing">Rekam batas</button>
         </div>
         <dl id="daftar-batas" class="daftar-batas"></dl>
-      </section>
+      </details>
 
       <section class="panel">
         <div class="judul-baris">
@@ -229,7 +226,7 @@
       <div><dt><kbd>W</kbd> <kbd>S</kbd></dt><dd>maju, mundur</dd></div>
       <div><dt><kbd>A</kbd> <kbd>D</kbd></dt><dd>putar badan kiri, kanan</dd></div>
       <div><dt><kbd>I</kbd> <kbd>K</kbd></dt><dd>naik, turun</dd></div>
-      <div><dt><kbd>J</kbd> <kbd>L</kbd></dt><dd>rel kiri, kanan</dd></div>
+      <div><dt><kbd>J</kbd> <kbd>L</kbd></dt><dd>rel kanan, kiri</dd></div>
       <div><dt><kbd>Spasi</kbd></dt><dd>berhenti</dd></div>
       <div><dt><kbd>P</kbd></dt><dd>baca posisi dari robot</dd></div>
       <div><dt><kbd>M</kbd></dt><dd>tandai titik</dd></div>
@@ -248,7 +245,16 @@
       <li><strong>Z belt dan Z bak:</strong> selipkan selembar kertas di bawah ujung vakum. Turunkan pakai langkah 0,5 mm sampai kertas mulai terjepit, lalu simpan. Jangan sampai menekan.</li>
       <li><strong>Bak:</strong> ujung vakum tepat di atas tengah bak. Lihat dari atas dan dari samping.</li>
       <li><strong>Parkir:</strong> 1 sampai 2 cm di atas tempat yang kosong. Bukan di atas bak atau belt.</li>
+      <li>Angka yang sudah disimpan diberi keterangan "terukur" dan tanggalnya. Yang belum ada keterangannya masih angka bawaan.</li>
     </ul>
+    <h3>Batas fisik (tab Ukur, Lanjutan)</h3>
+    <p>Firmware hanya tahu batas jangkauan lengan, tidak tahu ada badan robot, kabel, atau benda di sekitarnya. Batas fisik adalah pagar tambahan di software supaya lengan tidak pernah ke sana.</p>
+    <ol>
+      <li>Jog pelan ke satu arah sampai lengan hampir beradu.</li>
+      <li>Tekan tombol rekam. Tombolnya menyebut arah yang akan direkam, yaitu arah jog terakhir.</li>
+      <li>Mulai saat itu aplikasi, jog.py, jalur.py, dan pick_place.py menolak gerakan yang melewati pagar itu.</li>
+    </ol>
+    <p>Cukup sekali, kecuali posisi robot di meja berubah.</p>
   </div>
 </dialog>
 
