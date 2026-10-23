@@ -12,7 +12,8 @@ const cache = {};             // potongan tampilan yang hanya digambar ulang kal
 
 const KUNCI_JOG = {
   w: ["y", 1], s: ["y", -1], a: ["rot", -1], d: ["rot", 1],
-  i: ["z", 1], k: ["z", -1], j: ["e", -1], l: ["e", 1],
+  // J = kiri, L = kanan dari operator; di robot nyata itu E+ dan E- (lihat jog.ARAH).
+  i: ["z", 1], k: ["z", -1], j: ["e", 1], l: ["e", -1],
 };
 
 const UKUR = [

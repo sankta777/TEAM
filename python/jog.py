@@ -154,7 +154,9 @@ ARAH = {
     "w": ("y", +1), "s": ("y", -1),
     # tangan kanan: IJKL -> Z dan rel
     "i": ("z", +1), "k": ("z", -1),
-    "j": ("e", -1), "l": ("e", +1),
+    # J = kiri, L = kanan DILIHAT DARI OPERATOR. Di robot nyata E+ bergerak
+    # ke kiri operator (laporan operator, 23 Okt 2026), jadi J = E+.
+    "j": ("e", +1), "l": ("e", -1),
     # alias lama supaya tidak ada yang hilang
     "KIRI": ("rot", -1), "KANAN": ("rot", +1),
     "ATAS": ("y", +1), "BAWAH": ("y", -1),
@@ -164,7 +166,7 @@ ARAH = {
 BANTUAN = """
   GERAK   tekan sekali = presisi, tahan = sapuan mulus
     W / S   Y maju / mundur          A / D   putar badan kiri / kanan
-    I / K   Z naik / turun           J / L   rel kanan / kiri
+    I / K   Z naik / turun           J / L   rel kiri / kanan
     (panah dan PgUp/PgDn tetap jalan)
 
   HALUSKAN   ubah sambil jalan, langsung terasa

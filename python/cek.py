@@ -453,9 +453,11 @@ cek("kumpulkan() daftar kosong -> kosong", jg.kumpulkan([]) == [])
 cek("WASD: A/D = PUTAR badan kiri/kanan, W/S = Y maju/mundur",
     jg.ARAH["a"] == ("rot", -1) and jg.ARAH["d"] == ("rot", 1) and
     jg.ARAH["w"] == ("y", 1) and jg.ARAH["s"] == ("y", -1))
-cek("IJKL: I/K = Z naik/turun, J/L = rel E-/E+ (kanan/kiri dari operator)",
+cek("IJKL: I/K = Z naik/turun, J/L = rel E+/E- (kiri/kanan dari operator)",
     jg.ARAH["i"] == ("z", 1) and jg.ARAH["k"] == ("z", -1) and
-    jg.ARAH["j"] == ("e", -1) and jg.ARAH["l"] == ("e", 1))
+    jg.ARAH["j"] == ("e", 1) and jg.ARAH["l"] == ("e", -1)
+    and jg.NAMA_ARAH[jg.ARAH["j"]].endswith("rel kiri")
+    and jg.NAMA_ARAH[jg.ARAH["l"]].endswith("rel kanan"))
 cek("alias panah & PgUp/PgDn masih menunjuk sumbu yang sama",
     jg.ARAH["KIRI"] == jg.ARAH["a"] and jg.ARAH["KANAN"] == jg.ARAH["d"] and
     jg.ARAH["ATAS"] == jg.ARAH["w"] and jg.ARAH["BAWAH"] == jg.ARAH["s"] and

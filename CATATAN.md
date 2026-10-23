@@ -511,7 +511,7 @@ tidak terbaca di terminal kamu, jalankan dari PowerShell dengan path yang sama.
 ```
 GERAK   tekan sekali = presisi, tahan = sapuan mulus
   W / S   Y maju / mundur          A / D   putar badan kiri / kanan
-  I / K   Z naik / turun           J / L   rel kanan / kiri
+  I / K   Z naik / turun           J / L   rel kiri / kanan
   (panah dan PgUp/PgDn tetap jalan sebagai alias)
 
 HALUSKAN   ubah sambil jalan, langsung terasa
