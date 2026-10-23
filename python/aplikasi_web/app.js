@@ -284,7 +284,7 @@ function gambar() {
   $("#kartu-sambung").hidden = S.tersambung;
   $("#kartu-homing").hidden = !S.tersambung || !S.perlu_homing;
   $("#kartu-kerja").hidden = !S.tersambung || S.perlu_homing;
-  $("#tombol-homing").disabled = !!S.sibuk || !$$(".cek-homing").every((c) => c.checked);
+  $("#tombol-homing").disabled = !!S.sibuk;
   $("#form-sambung button").disabled = !!S.sibuk;
 
   // aktif / redup
@@ -584,13 +584,7 @@ function pasangTombol() {
     kirim("sambung", { port: $("#isian-port").value.trim() || null, sim: $("#isian-sim").checked });
   });
 
-  $$(".cek-homing").forEach((c) => c.addEventListener("change", () => {
-    $("#tombol-homing").disabled = !!(S && S.sibuk) || !$$(".cek-homing").every((x) => x.checked);
-  }));
-  $("#tombol-homing").addEventListener("click", () => {
-    kirim("homing");
-    $$(".cek-homing").forEach((c) => { c.checked = false; });
-  });
+  $("#tombol-homing").addEventListener("click", () => kirim("homing"));
 
   $("#tombol-homing-ulang").addEventListener("click", async () => {
     const ok = await tanya({
