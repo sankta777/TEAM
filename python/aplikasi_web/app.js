@@ -135,9 +135,14 @@ function pasangKeyboard() {
       return;
     }
     if (e.repeat) return;
-    if (k === "p" && bolehGerak()) kirim("posisi");
-    else if (k === "m" && bolehGerak()) kirim("tandai");
-    else if (k === "v" && bolehGerak()) kirim("vakum", { nyala: !S.vakum });
+    // Tombol keyboard TIDAK disaring dengan bolehGerak(): status di layar bisa
+    // tertinggal 250 ms, dan tombol yang hilang tanpa kabar membingungkan.
+    // Server yang memutuskan; kalau lengan masih bergerak, alasannya muncul di log.
+    if (!S || !S.tersambung) return;
+    if (k === "p") kirim("posisi");
+    else if (k === "m") kirim("tandai");
+    else if (k === "v") kirim("vakum", { nyala: !S.vakum });
+    else if (k === "c" && Array.isArray(S.rekam)) kirim("rekam_catat");
     else if (e.key === "?") bukaPanduan();
   });
   document.addEventListener("keyup", (e) => {
@@ -151,7 +156,9 @@ function berhenti() {
 }
 
 // ---------------------------------------------------------------- dialog
-function tanya({ judul, isi, cek = [], ya = "Lanjut", bahaya = false }) {
+// lain = teks tombol ketiga (opsional). Tanpa `lain` hasilnya boolean seperti
+// biasa; dengan `lain` hasilnya "ya" | "lain" | "batal".
+function tanya({ judul, isi, cek = [], ya = "Lanjut", bahaya = false, lain = null }) {
   const dlg = $("#dialog");
   $("#dialog-judul").textContent = judul;
   const wadah = $("#dialog-isi");
@@ -173,13 +180,19 @@ function tanya({ judul, isi, cek = [], ya = "Lanjut", bahaya = false }) {
   const tombolYa = $("#dialog-ya");
   tombolYa.textContent = ya;
   tombolYa.className = bahaya ? "bahaya" : "utama";
+  const tombolLain = $("#dialog-lain");
+  tombolLain.hidden = !lain;
+  tombolLain.textContent = lain || "";
   const perbarui = () => { tombolYa.disabled = !kotak.every((c) => c.checked); };
   kotak.forEach((c) => c.addEventListener("change", perbarui));
   perbarui();
   dlg.returnValue = "";
   dlg.showModal();
   return new Promise((selesai) => {
-    dlg.addEventListener("close", () => selesai(dlg.returnValue === "ya"), { once: true });
+    dlg.addEventListener("close", () => {
+      const v = dlg.returnValue || "batal";
+      selesai(lain ? v : v === "ya");
+    }, { once: true });
   });
 }
 
@@ -300,6 +313,7 @@ function gambar() {
   gambarSetelanJog();
   if (S.tersambung && !S.perlu_homing) gambarPeta();
   gambarUkur();
+  gambarPreset();
 }
 
 function gambarSetelanJog() {
@@ -414,6 +428,44 @@ function gambarPeta() {
 }
 
 // ---------------------------------------------------------------- ukur
+// Sumbu yang diambil tiap ukuran (sama dengan setelan.KUNCI_UKUR).
+const SUMBU_UKUR = {
+  z_belt: ["z"], z_bak: ["z"], bak_koin: ["x", "y"], bak_tutup_botol: ["x", "y"], parkir: ["x", "y", "z"],
+};
+// X/Y dihitung dari badan robot, yang ikut bergeser bersama rel.
+const PERLU_REL_NOL = new Set(["bak_koin", "bak_tutup_botol", "parkir"]);
+
+const tidurMs = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function simpanUkur(u) {
+  const e = S.posisi ? S.posisi.e : 0;
+  if (!PERLU_REL_NOL.has(u.kunci) || Math.abs(e) <= 0.5) {
+    kirim("ukur_simpan", { kunci: u.kunci });
+    return;
+  }
+  const pilihan = await tanya({
+    judul: "Rel tidak di E=0",
+    isi: `Rel sekarang di E=${angka(e)}. Posisi X dan Y dihitung dari badan robot, jadi ${u.nama.toLowerCase()} akan meleset sekitar ${angka(Math.abs(e) / 10)} cm saat robot di E=0.`,
+    ya: "Rel ke 0 dulu",
+    lain: "Tetap simpan",
+  });
+  if (pilihan === "lain") {
+    kirim("ukur_simpan", { kunci: u.kunci, paksa: true });
+  } else if (pilihan === "ya") {
+    const j = await kirim("rel_nol");
+    if (!j.ok) return;
+    // Tunggu rel benar-benar sampai, baru simpan.
+    for (let i = 0; i < 300; i++) {
+      await tidurMs(100);
+      if (S && !S.sibuk && S.posisi && Math.abs(S.posisi.e) <= 0.5) {
+        kirim("ukur_simpan", { kunci: u.kunci });
+        return;
+      }
+    }
+    tulisLokal("rel belum sampai di E=0, posisi tidak disimpan", "peringatan");
+  }
+}
+
 function gambarUkur() {
   const s = S.setelan;
   const bisaGerak = bolehGerak();
@@ -435,9 +487,11 @@ function gambarUkur() {
       const waktu = s.diukur[u.kunci];
       li.innerHTML = `
         <span class="nama"></span>
+        <span class="sekarang" data-kunci=""></span>
         <span class="nilai"><span class="angka"></span><span class="lencana terukur"></span></span>
         <span class="baris-tombol"></span>`;
       li.querySelector(".nama").textContent = u.nama;
+      li.querySelector(".sekarang").dataset.kunci = u.kunci;
       li.querySelector(".angka").textContent = nilai;
       // Hanya angka yang SUDAH diukur yang diberi keterangan; yang belum, kosong.
       if (waktu) li.querySelector(".lencana").textContent = `terukur ${waktu}`;
@@ -446,7 +500,7 @@ function gambarUkur() {
       simpan.textContent = "Simpan posisi ini";
       simpan.className = "utama";
       simpan.disabled = !bisaGerak;
-      simpan.addEventListener("click", () => kirim("ukur_simpan", { kunci: u.kunci }));
+      simpan.addEventListener("click", () => simpanUkur(u));
       tombol.append(simpan);
       if (u.pergi) {
         const pergi = document.createElement("button");
@@ -467,6 +521,15 @@ function gambarUkur() {
       ul.append(li);
     }
   }
+
+  // "sekarang" berubah tiap jog, jadi diperbarui di LUAR cache, tiap poll.
+  const p = S.posisi;
+  $$("#daftar-ukur .sekarang").forEach((el) => {
+    if (!p || S.perlu_homing) { el.textContent = ""; return; }
+    const sumbu = SUMBU_UKUR[el.dataset.kunci];
+    el.textContent = "sekarang " + sumbu.map((k) => `${k.toUpperCase()} ${angka(p[k])}`).join("  ");
+  });
+  $("#ukur-reset").disabled = !S.tersambung || !!S.sibuk;
 
   const kunciMasalah = JSON.stringify(S.masalah);
   if (cache.masalah !== kunciMasalah) {
@@ -551,6 +614,206 @@ function gambarUkur() {
   $("#hapus-semua").disabled = !S.titik.length;
 }
 
+// ---------------------------------------------------------------- preset
+const pilihPreset = new Set();     // id yang dicentang (urutan putar = urutan nomor)
+const bukaPreset = new Set();      // id yang tabel langkahnya sedang dibuka
+let kecepatanPutar = 40;
+
+function teksLangkah(l) {
+  if (l.jenis === "gerak") return `Gerak  X ${angka(l.x)}  Y ${angka(l.y)}  Z ${angka(l.z)}  E ${angka(l.e)}`;
+  if (l.jenis === "vakum") return l.nyala ? "Vakum nyala" : "Vakum mati";
+  if (l.jenis === "gripper") return l.buka ? "Gripper buka" : "Gripper genggam";
+  if (l.jenis === "tunggu") return `Tunggu ${angka(l.detik)} detik`;
+  return l.jenis;
+}
+
+function gambarPreset() {
+  const bisaGerak = bolehGerak();
+  const merekam = Array.isArray(S.rekam);
+  const putar = S.putar;
+
+  // --- rekam
+  $("#rekam-mulai").hidden = merekam;
+  $("#rekam-mulai").disabled = !bisaGerak || !!putar;
+  $("#rekam-aktif").hidden = !merekam;
+  if (merekam) {
+    const kunci = JSON.stringify(S.rekam);
+    if (cache.rekam !== kunci) {
+      cache.rekam = kunci;
+      const ol = $("#rekam-langkah");
+      ol.innerHTML = "";
+      S.rekam.forEach((l) => {
+        const li = document.createElement("li");
+        li.textContent = teksLangkah(l);
+        ol.append(li);
+      });
+      $("#rekam-kosong").hidden = S.rekam.length > 0;
+    }
+    $("#rekam-catat").disabled = !bisaGerak;
+    $("#rekam-vakum").disabled = !bisaGerak;
+    $("#rekam-vakum").setAttribute("aria-pressed", String(!!S.vakum));
+    $("#rekam-undo").disabled = !S.rekam.length;
+  } else {
+    cache.rekam = null;
+  }
+
+  // --- daftar preset
+  const ids = new Set(S.preset.map((p) => p.id));
+  for (const id of [...pilihPreset]) if (!ids.has(id)) pilihPreset.delete(id);
+  const kunciDaftar = JSON.stringify([S.preset, [...bukaPreset], bisaGerak, !!putar]);
+  if (cache.preset !== kunciDaftar) {
+    cache.preset = kunciDaftar;
+    const ul = $("#daftar-preset");
+    ul.innerHTML = "";
+    S.preset.forEach((p, i) => {
+      const li = document.createElement("li");
+      const baris = document.createElement("div");
+      baris.className = "baris-preset";
+
+      const c = document.createElement("input");
+      c.type = "checkbox";
+      c.checked = pilihPreset.has(p.id);
+      c.setAttribute("aria-label", `pilih preset ${i + 1}`);
+      c.addEventListener("change", () => {
+        if (c.checked) pilihPreset.add(p.id); else pilihPreset.delete(p.id);
+        gambarPutar();
+      });
+
+      const nama = document.createElement("span");
+      nama.className = "nama";
+      nama.textContent = `${i + 1}. ${p.nama}`;
+
+      const info = document.createElement("span");
+      info.className = "info";
+      const salah = p.status.findIndex((s) => !s.ok);
+      info.textContent = `${p.langkah.length} langkah`;
+      const lencana = document.createElement("span");
+      lencana.className = salah < 0 ? "lencana-ok" : "lencana-salah";
+      lencana.textContent = salah < 0 ? "bisa dijangkau" : `langkah ${salah + 1} tidak terjangkau`;
+
+      const tombol = document.createElement("span");
+      tombol.className = "baris-tombol";
+      const lihat = document.createElement("button");
+      lihat.textContent = bukaPreset.has(p.id) ? "Tutup" : "Lihat";
+      lihat.className = "ghost";
+      lihat.addEventListener("click", () => {
+        if (bukaPreset.has(p.id)) bukaPreset.delete(p.id); else bukaPreset.add(p.id);
+        gambarPreset();
+      });
+      const coba = document.createElement("button");
+      coba.textContent = "Coba sekali";
+      coba.disabled = !bisaGerak || !!putar || salah >= 0;
+      coba.addEventListener("click", async () => {
+        const ok = await tanya({
+          judul: `Coba "${p.nama}" sekali?`,
+          isi: "Lengan naik ke tinggi aman, pindah ke langkah pertama, lalu menjalankan semua langkah pelan (20 mm/s).",
+          cek: ["Jalur lengan bersih dari benda dan tangan"],
+          ya: "Coba sekali",
+        });
+        if (ok) kirim("preset_coba", { id: p.id });
+      });
+      tombol.append(lihat, coba);
+      baris.append(c, nama, info, lencana, tombol);
+      li.append(baris);
+
+      if (bukaPreset.has(p.id)) {
+        const ol = document.createElement("ol");
+        ol.className = "daftar-langkah rinci";
+        p.langkah.forEach((l, n) => {
+          const item = document.createElement("li");
+          const s = p.status[n];
+          if (!s.ok) item.className = "salah";
+          const teks = document.createElement("span");
+          teks.textContent = teksLangkah(l) + (s.ok ? "" : `  (${s.alasan})`);
+          item.append(teks);
+          if (l.jenis === "gerak") {
+            const ke = document.createElement("button");
+            ke.textContent = "Ke sini";
+            ke.className = "ghost kecil";
+            ke.disabled = !bisaGerak || !!putar || !s.ok;
+            ke.addEventListener("click", () => kirim("preset_ke_langkah", { id: p.id, nomor: n + 1 }));
+            item.append(ke);
+          }
+          ol.append(item);
+        });
+        li.append(ol);
+      }
+      ul.append(li);
+    });
+    $("#preset-kosong").hidden = S.preset.length > 0;
+  }
+  $("#preset-hapus-centang").disabled = !pilihPreset.size;
+  $("#preset-hapus-terakhir").disabled = !S.preset.length;
+  $("#preset-hapus-semua").disabled = !S.preset.length;
+
+  // --- sampah
+  const kunciSampah = JSON.stringify(S.sampah);
+  if (cache.sampah !== kunciSampah) {
+    cache.sampah = kunciSampah;
+    $("#sampah-judul").textContent = `Sampah (${S.sampah.length})`;
+    const ul = $("#daftar-sampah");
+    ul.innerHTML = "";
+    S.sampah.forEach((p) => {
+      const li = document.createElement("li");
+      const t = document.createElement("span");
+      t.textContent = `${p.nama}  (${p.jumlah} langkah, dihapus ${p.dihapus})`;
+      const b = document.createElement("button");
+      b.textContent = "Pulihkan";
+      b.className = "ghost kecil";
+      b.addEventListener("click", () => kirim("preset_pulihkan", { id: p.id }));
+      li.append(t, b);
+      ul.append(li);
+    });
+    $("#sampah-kosongkan").disabled = !S.sampah.length;
+  }
+
+  gambarPutar();
+}
+
+function gambarPutar() {
+  if (!S) return;
+  const putar = S.putar;
+  const terpilih = S.preset.filter((p) => pilihPreset.has(p.id));
+  $("#putar-pilihan").textContent = terpilih.length
+    ? "Akan diputar: " + terpilih.map((p) => `${S.preset.indexOf(p) + 1}. ${p.nama}`).join(", ")
+    : "Centang preset di daftar untuk diputar.";
+
+  const seg = $("#putar-kecepatan");
+  if (seg.childElementCount !== S.kecepatan_preset.length) {
+    seg.innerHTML = "";
+    S.kecepatan_preset.forEach((v) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = String(v);
+      b.dataset.v = String(v);
+      b.addEventListener("click", () => { kecepatanPutar = v; gambarPutar(); });
+      seg.append(b);
+    });
+  }
+  [...seg.children].forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.v) === kecepatanPutar)));
+
+  const terus = $("#putar-terus").checked;
+  $("#putar-ulang").disabled = terus || !!putar;
+  const semuaOk = terpilih.length > 0 && terpilih.every((p) => p.ok);
+  const dijeda = putar && putar.keadaan === "jeda";
+  const jalan = $("#putar-jalan");
+  jalan.textContent = dijeda ? "Lanjut" : "Jalan";
+  // Tombol yang tidak relevan diredupkan (kesepakatan rancangan).
+  jalan.disabled = dijeda ? false : (!!putar || !bolehGerak() || !semuaOk || Array.isArray(S.rekam));
+  $("#putar-jeda").disabled = !putar || dijeda;
+  $("#putar-berhenti").disabled = !putar;
+
+  const k = $("#putar-kemajuan");
+  if (putar) {
+    const total = putar.total ? `/${putar.total}` : " (terus)";
+    k.textContent = `${dijeda ? "Dijeda" : "Berjalan"}: putaran ${putar.putaran}${total}, ${putar.nama}, langkah ${putar.langkah_ke}/${putar.total_langkah}`;
+  } else if (terpilih.length && !semuaOk) {
+    k.textContent = "Ada preset terpilih yang punya langkah tidak terjangkau. Buka Lihat untuk detailnya.";
+  } else {
+    k.textContent = "";
+  }
+}
+
 function perbaruiHapus() {
   $("#hapus-centang").disabled = !$$("#tabel-titik input:checked").length;
 }
@@ -617,6 +880,84 @@ function pasangTombol() {
     });
     if (ok) kirim("rilis_motor", { dipegang: true });
   });
+
+  // --- ukur: reset
+  $("#ukur-reset").addEventListener("click", async () => {
+    const ok = await tanya({
+      judul: "Kembalikan semua angka ukur ke angka awal?",
+      isi: "Z belt, Z bak, posisi kedua bak, dan titik parkir kembali ke angka awal. Angka yang sudah diukur hilang.",
+      ya: "Kembalikan",
+      bahaya: true,
+    });
+    if (ok) kirim("ukur_reset");
+  });
+
+  // --- preset: rekam
+  $("#rekam-mulai").addEventListener("click", () => kirim("rekam_mulai"));
+  $("#rekam-catat").addEventListener("click", () => kirim("rekam_catat"));
+  $("#rekam-vakum").addEventListener("click", () => kirim("vakum", { nyala: !S.vakum }));
+  $("#rekam-tunggu").addEventListener("click", () => {
+    const detik = Number($("#rekam-detik").value);
+    kirim("rekam_tunggu", { detik });
+  });
+  $("#rekam-undo").addEventListener("click", () => kirim("rekam_hapus_langkah"));
+  $("#form-rekam").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const j = await kirim("rekam_simpan", { nama: $("#rekam-nama").value });
+    if (j.ok) $("#rekam-nama").value = "";
+  });
+  $("#rekam-batal").addEventListener("click", async () => {
+    if (S.rekam && S.rekam.length) {
+      const ok = await tanya({ judul: "Buang rekaman ini?", isi: `${S.rekam.length} langkah yang belum disimpan akan hilang.`, ya: "Buang", bahaya: true });
+      if (!ok) return;
+    }
+    kirim("rekam_batal");
+  });
+
+  // --- preset: hapus dan sampah
+  $("#preset-hapus-centang").addEventListener("click", () => {
+    if (pilihPreset.size) kirim("preset_hapus", { ids: [...pilihPreset] });
+  });
+  $("#preset-hapus-terakhir").addEventListener("click", () => kirim("preset_hapus", { terakhir: true }));
+  $("#preset-hapus-semua").addEventListener("click", async () => {
+    const ok = await tanya({
+      judul: `Hapus semua ${S.preset.length} preset?`,
+      isi: "Semua preset pindah ke Sampah dan masih bisa dipulihkan sampai sampahnya dikosongkan.",
+      ya: "Hapus semua",
+      bahaya: true,
+    });
+    if (ok) kirim("preset_hapus", { semua: true });
+  });
+  $("#sampah-kosongkan").addEventListener("click", async () => {
+    const ok = await tanya({
+      judul: "Kosongkan sampah?",
+      isi: `${S.sampah.length} preset di sampah dihapus permanen. Tidak bisa dibatalkan.`,
+      ya: "Kosongkan",
+      bahaya: true,
+    });
+    if (ok) kirim("preset_kosongkan_sampah");
+  });
+
+  // --- preset: putar
+  $("#putar-terus").addEventListener("change", gambarPutar);
+  $("#putar-jalan").addEventListener("click", async () => {
+    if (S.putar && S.putar.keadaan === "jeda") {
+      kirim("preset_lanjut");
+      return;
+    }
+    const ids = S.preset.filter((p) => pilihPreset.has(p.id)).map((p) => p.id);
+    const terus = $("#putar-terus").checked;
+    const ulang = terus ? 0 : Math.max(1, Math.floor(Number($("#putar-ulang").value) || 1));
+    const ok = await tanya({
+      judul: terus ? "Putar terus sampai dihentikan?" : `Putar ${ulang} kali?`,
+      isi: `${ids.length} preset, kecepatan ${kecepatanPutar} mm/s. Hentikan kapan saja dengan Jeda, Berhenti, atau Spasi.`,
+      cek: ["Jalur lengan bersih dari benda dan tangan"],
+      ya: "Jalan",
+    });
+    if (ok) kirim("preset_jalan", { ids, ulang, kecepatan: kecepatanPutar });
+  });
+  $("#putar-jeda").addEventListener("click", () => kirim("preset_jeda"));
+  $("#putar-berhenti").addEventListener("click", () => kirim("preset_berhenti"));
 
   $("#hapus-centang").addEventListener("click", () => {
     const nomor = $$("#tabel-titik input:checked").map((c) => Number(c.dataset.n));

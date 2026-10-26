@@ -2136,6 +2136,255 @@ _srv.server_close()
 app.tutup()
 
 
+# ===========================================================================
+print()
+print("=" * 68)
+print("23. preset.py + aplikasi -- rekam, putar, jeda, berhenti; reset & rel E=0")
+print("=" * 68)
+import preset as mod_preset
+
+# ---- logika murni -----------------------------------------------------------
+for _nama, _rusak in [("tunggu 0 detik", {"jenis": "tunggu", "detik": 0}),
+                      ("tunggu 61 detik", {"jenis": "tunggu", "detik": 61}),
+                      ("jenis aneh", {"jenis": "terbang"}),
+                      ("gerak tanpa z", {"jenis": "gerak", "x": 0, "y": 230, "e": 0}),
+                      ("vakum bukan boolean", {"jenis": "vakum", "nyala": 1})]:
+    try:
+        mod_preset.rapikan_langkah(_rusak)
+        cek(f"preset: langkah rusak ditolak ({_nama})", False)
+    except mod_preset.PresetError:
+        cek(f"preset: langkah rusak ditolak ({_nama})", True)
+
+_A, _B = (0.0, 230.0, 20.0, 0.0), (-60.0, 230.0, 20.0, 0.0)
+cek("rute di dalam preset = satu garis lurus",
+    mod_preset.rencana_gerak(_A, _B, False) == [_B])
+cek("rute masuk preset = naik ke Z aman, pindah, turun",
+    mod_preset.rencana_gerak(_A, _B, True)
+    == [(0.0, 230.0, jalur.Z_SAFE, 0.0), (-60.0, 230.0, jalur.Z_SAFE, 0.0), _B])
+cek("rute masuk dari posisi tinggi tidak menambah titik dobel",
+    mod_preset.rencana_gerak((0.0, 217.0, 138.0, 0.0), _A, True)
+    == [(0.0, 230.0, 138.0, 0.0), _A])
+
+_d0, _p_ok = mod_preset.tambah(mod_preset.kosong(), "ok", [
+    mod_preset.langkah_gerak(*_A), {"jenis": "vakum", "nyala": True},
+    {"jenis": "tunggu", "detik": 0.1}, mod_preset.langkah_gerak(*_B),
+    {"jenis": "vakum", "nyala": False}])
+_d0, _p_jauh = mod_preset.tambah(_d0, "jauh", [
+    mod_preset.langkah_gerak(*_A), mod_preset.langkah_gerak(0, 500, 0, 0)])
+_st = mod_preset.validasi_internal(_p_jauh)
+cek("validasi menandai langkah yang tak terjangkau, dengan alasan",
+    _st[0]["ok"] and not _st[1]["ok"] and "R_MAX" in _st[1]["alasan"])
+_ok, _alasan = mod_preset.validasi_urutan([_p_ok, _p_jauh], (0, 217, 138, 0), False)
+cek("validasi urutan menyebut preset dan nomor langkahnya",
+    not _ok and "'jauh'" in _alasan and "langkah 2" in _alasan, _alasan)
+
+_d1 = mod_preset.buang(_d0, [_p_jauh["id"]], waktu="2026-10-26 10:00")
+cek("hapus = pindah ke sampah, bukan hilang",
+    [p["nama"] for p in _d1["preset"]] == ["ok"]
+    and _d1["sampah"][0]["dihapus"] == "2026-10-26 10:00")
+_d2 = mod_preset.pulihkan(_d1, _p_jauh["id"])
+cek("pulihkan dari sampah", len(_d2["preset"]) == 2 and _d2["sampah"] == []
+    and "dihapus" not in _d2["preset"][1])
+cek("kosongkan sampah", mod_preset.kosongkan_sampah(_d1)["sampah"] == [])
+try:
+    mod_preset.buang(_d0, ["tidak-ada"])
+    cek("hapus id yang tidak ada ditolak", False)
+except mod_preset.PresetError:
+    cek("hapus id yang tidak ada ditolak", True)
+
+_dir_p = _tempfile.mkdtemp(prefix="cek-preset-")
+_bp = os.path.join(_dir_p, "p.json")
+mod_preset.simpan(_d1, _bp)
+_balik, _gal = mod_preset.muat(_bp)
+cek("simpan -> muat preset utuh", _balik == mod_preset.rapikan(_d1) and _gal is None
+    and not os.path.exists(_bp + ".tmp"))
+with open(_bp, "w", encoding="utf-8") as _f:
+    _f.write("[rusak")
+_balik, _gal = mod_preset.muat(_bp)
+cek("berkas preset rusak -> kosong + peringatan, berkasnya tidak ditimpa",
+    _balik == mod_preset.kosong() and _gal and open(_bp).read() == "[rusak")
+
+
+# ---- aplikasi + simulator ----------------------------------------------------
+def _app_preset():
+    d = _tempfile.mkdtemp(prefix="cek-app-preset-")
+    p = aplikasi.Pengendali(
+        buat_robot=lambda port, sim: simulasi.robot_palsu(),
+        berkas_setelan=os.path.join(d, "setelan.json"),
+        berkas_titik=os.path.join(d, "titik.json"),
+        berkas_preset=os.path.join(d, "preset.json"), jeda_sim=True)
+    p.kirim("sambung", {"sim": True})
+    p.tunggu_selesai()
+    p.kirim("homing")
+    p.tunggu_selesai()
+    return p
+
+
+def _jalankan(p, aksi, **isi):
+    p.kirim(aksi, isi)
+    return p.tunggu_selesai(60)
+
+
+def _perintah(p, awalan):
+    return sum(1 for c in p.bot.sim.log_perintah if c.upper().startswith(awalan))
+
+
+ap = _app_preset()
+
+# reset setelan + pengaman rel E=0
+_jalankan(ap, "jog", sumbu="e", arah=1, token="r")
+ap.kirim("jog_lepas", {"token": "r"})
+ap.tunggu_selesai()
+cek("uji rel: lengan bergeser dari E=0", ap.bot.e > 0.4, f"E={ap.bot.e}")
+_jalankan(ap, "ukur_simpan", kunci="bak_koin")
+cek("simpan bak saat rel bukan E=0 DITOLAK tanpa 'paksa'",
+    "bukan 0" in _log(ap) and not os.path.exists(ap.berkas_setelan))
+_jalankan(ap, "ukur_simpan", kunci="z_belt")
+cek("Z belt tetap boleh disimpan walau rel bukan 0 (tinggi tidak ikut rel)",
+    os.path.exists(ap.berkas_setelan))
+_jalankan(ap, "ukur_simpan", kunci="bak_koin", paksa=True)
+cek("dengan 'paksa' bak tetap tersimpan",
+    "bak_koin" in setelan.muat(ap.berkas_setelan)["diukur"])
+_jalankan(ap, "rel_nol")
+cek("Rel ke 0 membawa rel tepat ke E=0", ap.bot.e == 0.0, f"E={ap.bot.e}")
+_jalankan(ap, "ukur_reset")
+cek("reset: berkas setelan dihapus, semua kembali BAWAAN",
+    not os.path.exists(ap.berkas_setelan) and ap.setelan == setelan.BAWAAN
+    and jalur.Z_BELT == setelan.BAWAAN["z_belt"]
+    and ap.jog.parkir_titik == (*setelan.BAWAAN["parkir"], 0.0))
+
+# rekam
+try:
+    ap.kirim("rekam_catat")
+    cek("catat sebelum Rekam baru ditolak", False)
+except aplikasi.AplikasiError:
+    cek("catat sebelum Rekam baru ditolak", True)
+ap.kirim("rekam_mulai")
+ap.bot.move(x=_A[0], y=_A[1], z=_A[2], f=200)
+ap.kirim("rekam_catat")
+try:
+    ap.kirim("rekam_catat")
+    cek("catat posisi yang sama dua kali ditolak", False)
+except aplikasi.AplikasiError:
+    cek("catat posisi yang sama dua kali ditolak", True)
+# Catat selagi lengan masih bergerak akan menyimpan posisi LAMA -> ditolak.
+ap.kirim("jog", {"sumbu": "y", "arah": 1, "token": "sibuk"})
+try:
+    ap.kirim("rekam_catat")
+    cek("catat selagi lengan bergerak ditolak", False)
+except aplikasi.AplikasiError as _e:
+    cek("catat selagi lengan bergerak ditolak", "berhenti" in str(_e))
+try:
+    ap.kirim("tandai")
+    cek("tandai titik selagi lengan bergerak ditolak", False)
+except aplikasi.AplikasiError as _e:
+    cek("tandai titik selagi lengan bergerak ditolak", "berhenti" in str(_e))
+ap.kirim("jog_lepas", {"token": "sibuk"})
+ap.tunggu_selesai()
+ap.bot.move(x=_A[0], y=_A[1], z=_A[2], f=200)
+_jalankan(ap, "vakum", nyala=True)
+ap.kirim("rekam_tunggu", {"detik": 0.1})
+ap.bot.move(x=_B[0], y=_B[1], z=_B[2], f=200)
+ap.kirim("rekam_catat")
+_jalankan(ap, "vakum", nyala=False)
+cek("rekaman: gerak, vakum ON, tunggu, gerak, vakum OFF (vakum tercatat otomatis)",
+    [l["jenis"] for l in ap.rekam] == ["gerak", "vakum", "tunggu", "gerak", "vakum"]
+    and ap.rekam[1]["nyala"] is True and ap.rekam[4]["nyala"] is False)
+try:
+    ap.kirim("rekam_simpan", {"nama": "  "})
+    cek("simpan tanpa nama ditolak", False)
+except aplikasi.AplikasiError:
+    cek("simpan tanpa nama ditolak", ap.rekam is not None)
+ap.kirim("rekam_simpan", {"nama": "ambil geser"})
+with open(ap.berkas_preset, encoding="utf-8") as _f:
+    _isi_p = _json.load(_f)
+cek("preset tersimpan ke berkas, rekaman ditutup",
+    ap.rekam is None and _isi_p["preset"][0]["nama"] == "ambil geser"
+    and len(_isi_p["preset"][0]["langkah"]) == 5)
+_id1 = ap.preset["preset"][0]["id"]
+
+# coba sekali
+_jalankan(ap, "selesai")
+_v0 = _perintah(ap, "VACUM ON")
+_jalankan(ap, "preset_coba", id=_id1)
+cek("coba sekali: lengan berakhir di langkah terakhir, vakum ON lalu OFF",
+    (ap.bot.x, ap.bot.y, ap.bot.z) == _B[:3] and _perintah(ap, "VACUM ON") == _v0 + 1
+    and ap.vakum is False)
+cek("memutar preset tidak menambah langkah ke rekaman", ap.rekam is None)
+
+# loop 3 putaran
+_v0 = _perintah(ap, "VACUM ON")
+_jalankan(ap, "preset_jalan", ids=[_id1], ulang=3, kecepatan=80.0)
+cek("loop 3 putaran = 3 kali vakum ON", _perintah(ap, "VACUM ON") == _v0 + 3,
+    f"{_perintah(ap, 'VACUM ON') - _v0}")
+
+# langkah tak terjangkau -> tidak bergerak sama sekali
+ap._simpan_preset(mod_preset.tambah(ap.preset, "jauh", _p_jauh["langkah"])[0])
+_id_jauh = ap.preset["preset"][-1]["id"]
+cek("status preset menandai yang tak terjangkau",
+    [p["ok"] for p in ap.status()["preset"]] == [True, False])
+_g0 = _perintah(ap, "G0")
+_jalankan(ap, "preset_jalan", ids=[_id1, _id_jauh], ulang=1, kecepatan=40.0)
+cek("satu langkah merah -> seluruh putaran ditolak SEBELUM bergerak",
+    _perintah(ap, "G0") == _g0 and "tidak dijalankan" in _log(ap))
+
+# jeda, lanjut, berhenti (terus sampai dihentikan)
+ap.kirim("preset_jalan", {"ids": [_id1], "ulang": 0, "kecepatan": 20.0})
+_waktu.sleep(0.4)
+try:
+    ap.kirim("homing")
+    cek("perintah lain ditolak selagi preset berjalan", False)
+except aplikasi.AplikasiError:
+    cek("perintah lain ditolak selagi preset berjalan", True)
+ap.kirim("preset_jeda")
+# Jeda berlaku SETELAH langkah yang sedang jalan selesai; langkah "masuk
+# preset" terdiri dari 3 gerakan, jadi tunggu sampai statusnya benar jeda.
+_batas_jeda = _waktu.monotonic() + 8.0
+while _waktu.monotonic() < _batas_jeda and (ap.status()["putar"] or {}).get("keadaan") != "jeda":
+    _waktu.sleep(0.05)
+_pos_jeda = (ap.bot.x, ap.bot.y, ap.bot.z)
+_waktu.sleep(0.5)
+cek("jeda: status 'jeda' dan lengan diam",
+    ap.status()["putar"]["keadaan"] == "jeda" and (ap.bot.x, ap.bot.y, ap.bot.z) == _pos_jeda)
+ap.kirim("preset_lanjut")
+_waktu.sleep(0.6)
+cek("lanjut: preset berjalan lagi", ap.status()["putar"]["keadaan"] == "jalan")
+ap.kirim("preset_berhenti")
+cek("berhenti: putaran selesai", ap.tunggu_selesai(30) and ap.putar is None)
+cek("berhenti: vakum mati, lengan pulang ke home, motor TETAP terkunci",
+    ap.vakum is False
+    and (ap.bot.x, ap.bot.y, ap.bot.z, ap.bot.e)
+    == (rnv3.HOME_X, rnv3.HOME_Y, rnv3.HOME_Z, rnv3.HOME_E)
+    and ap.bot.sim.steppers_on is True and _perintah(ap, "M18") == 0)
+
+# tombol Berhenti global juga menghentikan preset yang sedang dijeda
+ap.kirim("preset_jalan", {"ids": [_id1], "ulang": 0, "kecepatan": 20.0})
+_waktu.sleep(0.3)
+ap.kirim("preset_jeda")
+_waktu.sleep(0.3)
+ap.kirim("berhenti")
+cek("Berhenti (spasi) juga menghentikan preset yang dijeda", ap.tunggu_selesai(30)
+    and ap.putar is None)
+
+# ke satu langkah
+_jalankan(ap, "preset_ke_langkah", id=_id1, nomor=4)
+cek("Ke sini: lengan di posisi langkah itu", (ap.bot.x, ap.bot.y, ap.bot.z) == _B[:3])
+
+# hapus -> sampah -> pulihkan -> kosongkan
+ap.kirim("preset_hapus", {"ids": [_id_jauh]})
+cek("hapus yang dicentang -> sampah",
+    [p["id"] for p in ap.preset["preset"]] == [_id1] and len(ap.status()["sampah"]) == 1)
+ap.kirim("preset_pulihkan", {"id": _id_jauh})
+ap.kirim("preset_hapus", {"terakhir": True})
+ap.kirim("preset_hapus", {"semua": True})
+cek("hapus terakhir lalu hapus semua -> daftar kosong, 2 di sampah",
+    ap.preset["preset"] == [] and len(ap.preset["sampah"]) == 2)
+ap.kirim("preset_kosongkan_sampah")
+cek("kosongkan sampah", ap.preset["sampah"] == [])
+ap.tutup()
+setelan.terapkan(setelan.BAWAAN)
+
+
 print()
 print("=" * 68)
 print(f"HASIL: {lulus} lulus, {gagal} gagal")

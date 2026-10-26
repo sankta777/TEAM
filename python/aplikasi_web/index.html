@@ -16,7 +16,7 @@
   <nav class="tab" role="tablist" aria-label="Bagian aplikasi">
     <button role="tab" data-tab="kontrol" aria-selected="true">Kontrol</button>
     <button role="tab" data-tab="ukur" aria-selected="false">Ukur</button>
-    <button role="tab" disabled title="Tahap berikutnya">Preset</button>
+    <button role="tab" data-tab="preset" aria-selected="false">Preset</button>
     <button role="tab" disabled title="Setelah kamera dan ESP32 siap">Sortir</button>
   </nav>
   <div class="aksi-atas">
@@ -158,7 +158,10 @@
     <!-- TAB UKUR -->
     <section id="tab-ukur" class="isi-tab" hidden>
       <section class="panel">
-        <h2>Angka hasil ukur</h2>
+        <div class="judul-baris">
+          <h2>Angka hasil ukur</h2>
+          <button id="ukur-reset" class="bahaya">Kembalikan ke angka awal</button>
+        </div>
         <ul id="daftar-ukur" class="daftar-ukur"></ul>
         <div id="masalah" class="masalah" hidden></div>
       </section>
@@ -193,6 +196,80 @@
         <p id="titik-kosong" class="kosong">Belum ada titik. Jog ke suatu tempat lalu tekan M.</p>
       </section>
     </section>
+
+    <!-- TAB PRESET -->
+    <section id="tab-preset" class="isi-tab" hidden>
+      <section class="panel">
+        <div class="judul-baris">
+          <h2>Rekam</h2>
+          <button id="rekam-mulai" class="utama">Rekam baru</button>
+        </div>
+        <div id="rekam-aktif" hidden>
+          <ol id="rekam-langkah" class="daftar-langkah"></ol>
+          <p id="rekam-kosong" class="kosong">Jog ke posisi pertama, lalu tekan Catat posisi.</p>
+          <div class="baris-tombol">
+            <button id="rekam-catat" class="utama"><kbd>C</kbd>Catat posisi</button>
+            <button id="rekam-vakum"><kbd>V</kbd>Vakum</button>
+            <button data-aksi="gripper" data-isi='{"buka":true}' data-perlu="homing">Gripper buka</button>
+            <button data-aksi="gripper" data-isi='{"buka":false}' data-perlu="homing">Gripper genggam</button>
+          </div>
+          <div class="baris-tombol">
+            <label class="isian-kecil" for="rekam-detik">Tunggu
+              <input id="rekam-detik" type="number" value="1" min="0.1" max="60" step="0.1"> detik</label>
+            <button id="rekam-tunggu">Tambah tunggu</button>
+            <button id="rekam-undo" class="ghost">Hapus langkah terakhir</button>
+          </div>
+          <form id="form-rekam" class="baris-form">
+            <label for="rekam-nama">Nama</label>
+            <input id="rekam-nama" maxlength="40" autocomplete="off">
+            <button type="submit" class="utama">Simpan preset</button>
+            <button type="button" id="rekam-batal" class="ghost">Batal</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="judul-baris">
+          <h2>Daftar preset</h2>
+          <div class="baris-tombol">
+            <button id="preset-hapus-centang" disabled>Hapus yang dicentang</button>
+            <button id="preset-hapus-terakhir">Hapus terakhir</button>
+            <button id="preset-hapus-semua" class="bahaya">Hapus semua</button>
+          </div>
+        </div>
+        <ul id="daftar-preset" class="daftar-preset"></ul>
+        <p id="preset-kosong" class="kosong">Belum ada preset. Tekan Rekam baru.</p>
+        <details class="sampah">
+          <summary id="sampah-judul">Sampah</summary>
+          <ul id="daftar-sampah" class="daftar-sampah"></ul>
+          <button id="sampah-kosongkan" class="bahaya">Kosongkan sampah</button>
+        </details>
+      </section>
+
+      <section class="panel">
+        <h2>Putar</h2>
+        <p id="putar-pilihan" class="bantu"></p>
+        <div class="pilih-putar">
+          <div class="pilih">
+            <span>Ulang</span>
+            <div class="baris-tombol">
+              <input id="putar-ulang" type="number" value="1" min="1" max="9999" step="1" aria-label="Jumlah putaran">
+              <label class="centang"><input type="checkbox" id="putar-terus"> Terus sampai dihentikan</label>
+            </div>
+          </div>
+          <div class="pilih">
+            <span>Kecepatan (mm/s)</span>
+            <div id="putar-kecepatan" class="segmen" role="group" aria-label="Kecepatan putar"></div>
+          </div>
+        </div>
+        <div class="baris-tombol tombol-putar">
+          <button id="putar-jalan" class="utama">Jalan</button>
+          <button id="putar-jeda">Jeda</button>
+          <button id="putar-berhenti" class="bahaya">Berhenti</button>
+        </div>
+        <p id="putar-kemajuan" class="kemajuan" aria-live="polite"></p>
+      </section>
+    </section>
   </main>
 </div>
 
@@ -202,6 +279,7 @@
     <div id="dialog-isi"></div>
     <div class="baris-tombol kanan-rata">
       <button value="batal" class="ghost">Batal</button>
+      <button value="lain" id="dialog-lain" hidden></button>
       <button value="ya" id="dialog-ya" class="utama">Lanjut</button>
     </div>
   </form>
@@ -231,6 +309,7 @@
       <div><dt><kbd>P</kbd></dt><dd>baca posisi dari robot</dd></div>
       <div><dt><kbd>M</kbd></dt><dd>tandai titik</dd></div>
       <div><dt><kbd>V</kbd></dt><dd>vakum nyala, mati</dd></div>
+      <div><dt><kbd>C</kbd></dt><dd>catat posisi (saat merekam preset)</dd></div>
       <div><dt><kbd>?</kbd></dt><dd>panduan ini</dd></div>
     </dl>
     <h3>Yang perlu diingat</h3>
@@ -246,6 +325,19 @@
       <li><strong>Bak:</strong> ujung vakum tepat di atas tengah bak. Lihat dari atas dan dari samping.</li>
       <li><strong>Parkir:</strong> 1 sampai 2 cm di atas tempat yang kosong. Bukan di atas bak atau belt.</li>
       <li>Angka yang sudah disimpan diberi keterangan "terukur" dan tanggalnya. Yang belum ada keterangannya masih angka bawaan.</li>
+    </ul>
+    <h3>Preset</h3>
+    <ol>
+      <li><strong>Rekam baru</strong>, jog ke posisi pertama, tekan <strong>Catat posisi</strong> (C). Ulangi untuk tiap posisi. Vakum dan gripper yang kamu tekan selama merekam ikut tercatat. Tambah tunggu kalau perlu jeda.</li>
+      <li>Beri nama, <strong>Simpan preset</strong>.</li>
+      <li><strong>Lihat</strong> untuk memeriksa langkahnya. Langkah merah tidak bisa dijangkau; preset yang punya langkah merah tidak bisa dijalankan.</li>
+      <li><strong>Coba sekali</strong> memutar satu preset pelan (20 mm/s). Pakai ini dulu di robot asli.</li>
+      <li>Untuk loop: centang preset, atur jumlah ulang atau Terus, tekan <strong>Jalan</strong>. Urutannya mengikuti nomor.</li>
+    </ol>
+    <ul>
+      <li>Di dalam satu preset lengan bergerak lurus seperti direkam. Saat masuk ke preset (dan saat loop kembali ke preset pertama) lengan naik dulu ke tinggi aman, pindah, baru turun.</li>
+      <li><strong>Jeda</strong> berhenti setelah langkah yang sedang jalan; <strong>Jalan</strong> melanjutkan. <strong>Berhenti</strong> menyelesaikan langkah itu, mematikan vakum, lalu lengan pulang ke home.</li>
+      <li>Preset yang dihapus masuk Sampah dulu dan masih bisa dipulihkan.</li>
     </ul>
     <h3>Batas fisik (tab Ukur, Lanjutan)</h3>
     <p>Firmware hanya tahu batas jangkauan lengan, tidak tahu ada badan robot, kabel, atau benda di sekitarnya. Batas fisik adalah pagar tambahan di software supaya lengan tidak pernah ke sana.</p>

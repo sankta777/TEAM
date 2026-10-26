@@ -14,9 +14,10 @@ dari source code firmware**, bukan dari video — jadi bisa dipercaya.
 | `python/kontak.py` | **Kontak pertama — verifikasi robot, lengan tidak bergerak** | **jalankan paling awal** |
 | `python/jog.py` | **Gerakkan lengan pakai tombol panah, divalidasi** | **jobdesk koordinat** |
 | `python/pick_place.py` | **Pick & place grid, versi yang sudah benar** | **jobdesk koordinat** |
-| `python/aplikasi.py` | **Aplikasi kontrol di browser: jog, ukur, tandai titik** (pengganti jog.py) | **jobdesk koordinat** |
+| `python/aplikasi.py` | **Aplikasi kontrol di browser: jog, ukur, tandai titik, preset** (pengganti jog.py) | **jobdesk koordinat** |
 | `python/setelan.py` | Satu berkas angka hasil ukur (`setelan-robot.json`) untuk jog, jalur, pick_place | semua |
-| `python/cek.py` | **Cek otomatis 384 item, tanpa robot** | semua |
+| `python/preset.py` | Rekam/putar preset: simpan, validasi rute, sampah (logika murni, tanpa port) | **jobdesk koordinat** |
+| `python/cek.py` | **Cek otomatis 428 item, tanpa robot** | semua |
 | `python/simulasi.py` | Simulator firmware, buat tes offline | semua |
 | `python/jalur.py` | **Middleware: belt + kamera + lengan jadi satu alur sortir** | **integrasi** |
 | `python/kontrak_kamera.py` | Kontrak serah-terima dengan tim kamera (deteksi, piksel/mm) | **integrasi** |
@@ -57,9 +58,18 @@ di `python/aplikasi_web/` (tanpa internet, tanpa CDN).
 
 | Tab | Isi |
 |---|---|
-| Kontrol | Sambung → homing (dengan checklist) → peta tampak atas, vakum, gripper, Selesai, Parkir, Matikan robot |
-| Ukur | Z belt, Z bak, bak koin, bak tutup botol, parkir: jog ke tempatnya lalu **Simpan posisi ini**. Batas fisik. Titik tertanda (hapus per nomor / terakhir / semua) |
-| Preset, Sortir | Belum dibuat (tahap berikutnya) |
+| Kontrol | Sambung → homing (tombol START) → peta tampak atas, vakum, gripper, Selesai, Parkir, Matikan robot |
+| Ukur | Z belt, Z bak, bak koin, bak tutup botol, parkir: jog ke tempatnya lalu **Simpan posisi ini** (tampil juga posisi "sekarang"). **Kembalikan ke angka awal**. Bak/parkir saat rel bukan E=0 → dialog "Rel ke 0 dulu / Tetap simpan". Batas fisik (lipat). Titik tertanda |
+| Preset | Rekam (Catat posisi = C, vakum/gripper tercatat otomatis, tunggu), daftar dengan status per langkah, Coba sekali (20 mm/s), Putar N kali / terus, Jalan/Jeda/Berhenti, hapus ke Sampah lalu pulihkan |
+| Sortir | Belum dibuat: butuh kamera (TCP), ESP32, dan kalibrasi |
+
+**Preset** (26 Okt 2026, `preset.py` + `cek.py` bagian 23): di dalam satu preset
+lengan bergerak lurus seperti direkam; saat masuk ke preset (dan saat loop
+kembali ke preset pertama) lengan naik ke tinggi aman dulu. Seluruh putaran
+divalidasi SEBELUM bergerak; satu langkah tak terjangkau = tidak jalan sama
+sekali. Jeda dan Berhenti berlaku di antara langkah (firmware tidak bisa
+membatalkan G0). Berhenti = vakum OFF lalu pulang ke home, motor tetap
+terkunci. Disimpan di `python/preset.json` (tidak di-commit, data kerja).
 
 Panel jog dan posisi selalu tampil di kiri, jadi bisa jog sambil mengukur.
 Keyboard sama dengan `jog.py` (W/S, A/D, I/K, J/L), plus **Spasi = Berhenti**,

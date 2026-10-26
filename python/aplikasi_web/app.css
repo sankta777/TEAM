@@ -258,7 +258,7 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--aksen); 
 .daftar-ukur { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
 .daftar-ukur li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 6px 14px;
   align-items: center;
   background: var(--panel-2);
@@ -266,6 +266,8 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--aksen); 
   padding: 10px 12px;
 }
 .daftar-ukur .nama { font-weight: 650; }
+/* Posisi lengan saat ini: warna aksen supaya beda jelas dari angka tersimpan. */
+.daftar-ukur .sekarang { font: 13px var(--mono); color: var(--aksen); text-align: right; white-space: nowrap; }
 .daftar-ukur .nilai { font: 600 14px var(--mono); text-align: right; }
 .daftar-ukur .lencana { display: block; font: 11.5px var(--sans); font-weight: 500; margin-top: 2px; }
 .daftar-ukur .lencana:empty { display: none; }
@@ -288,6 +290,55 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--aksen); 
 .tabel-titik td { padding: 5px 8px; }
 .tabel-titik tbody tr:nth-child(odd) { background: var(--panel-2); }
 .tabel-titik td:first-child, .tabel-titik th:first-child { width: 32px; }
+
+/* ---------- preset ---------- */
+input[type="number"] {
+  font: 14px var(--mono);
+  color: var(--tinta);
+  background: var(--panel-2);
+  border: 1px solid var(--garis);
+  border-radius: var(--sudut);
+  padding: 7px 8px;
+  width: 92px;
+}
+.isian-kecil { display: inline-flex; align-items: center; gap: 6px; color: var(--tinta-2); }
+#rekam-aktif { display: grid; gap: 10px; margin-top: 4px; }
+.daftar-langkah {
+  margin: 0;
+  padding: 8px 12px 8px 34px;
+  background: var(--panel-2);
+  border-radius: var(--sudut);
+  font: 13px/1.6 var(--mono);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.daftar-langkah.rinci { margin-top: 8px; background: var(--panel); }
+.daftar-langkah li { padding: 1px 0; }
+.daftar-langkah.rinci li { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.daftar-langkah li.salah { color: var(--bahaya); }
+button.kecil { padding: 3px 9px; font-size: 12px; }
+
+.daftar-preset { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
+.daftar-preset > li { background: var(--panel-2); border-radius: var(--sudut); padding: 8px 12px; }
+.baris-preset {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  gap: 12px;
+  align-items: center;
+}
+.baris-preset .nama { font-weight: 650; overflow-wrap: anywhere; }
+.baris-preset .info { color: var(--tinta-2); font-size: 12.5px; white-space: nowrap; }
+.lencana-ok, .lencana-salah { font-size: 12px; font-weight: 550; white-space: nowrap; }
+.lencana-ok { color: var(--aman); }
+.lencana-salah { color: var(--bahaya); }
+
+.sampah { margin-top: 12px; }
+.daftar-sampah { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 4px; font-size: 13px; }
+.daftar-sampah li { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--tinta-2); }
+
+.pilih-putar { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 12px; }
+.tombol-putar button { min-width: 96px; }
+.kemajuan { margin: 10px 0 0; font: 13px var(--mono); color: var(--aksen); min-height: 1.5em; }
 
 /* ---------- dialog ---------- */
 dialog {
@@ -320,6 +371,9 @@ dialog::backdrop { background: rgba(14, 14, 20, 0.45); }
   .tab { grid-column: 1 / -1; grid-row: 2; justify-self: start; overflow-x: auto; max-width: 100%; }
   .kerangka { grid-template-columns: 1fr; padding: 12px 16px; }
   .daftar-ukur li { grid-template-columns: 1fr; }
+  .daftar-ukur .sekarang { text-align: left; }
+  .baris-preset { grid-template-columns: auto minmax(0, 1fr); }
+  .baris-preset .info, .baris-preset .lencana-ok, .baris-preset .lencana-salah, .baris-preset .baris-tombol { grid-column: 2; }
   .daftar-ukur .nilai, .daftar-ukur .baris-tombol { text-align: left; justify-content: flex-start; }
   .daftar-tombol { grid-template-columns: 1fr; }
 }

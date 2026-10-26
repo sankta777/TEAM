@@ -35,6 +35,7 @@ KESELAMATAN
 import argparse
 import collections
 import contextlib
+import copy
 import http.server
 import io
 import json
@@ -44,11 +45,11 @@ import queue
 import sys
 import threading
 import time
-import uuid
 import webbrowser
 
 import jalur
 import jog as mod_jog
+import preset as mod_preset
 import rnv3
 import setelan
 from rnv3 import RNV3Error
@@ -56,16 +57,31 @@ from rnv3 import RNV3Error
 FOLDER = os.path.dirname(os.path.abspath(__file__))
 FOLDER_WEB = os.path.join(FOLDER, "aplikasi_web")
 BERKAS_TITIK = os.path.join(FOLDER, "titik-tanda.json")
+BERKAS_PRESET = mod_preset.BERKAS_DEFAULT
+KECEPATAN_PRESET = (20.0, 40.0, 80.0)   # mm/s pilihan putar ulang
+F_COBA = 20.0                           # "Coba sekali" selalu pelan
 PORT_WEB = 8765
 
 DETAK_MAKS = 0.35   # s tanpa detak dari browser -> jog tahan berhenti
 JEDA_TAP = 0.30     # s pertama setelah ditekan = "tekan sekali" (presisi)
 F_PERGI = 40.0      # mm/s saat pergi ke titik tersimpan
+F_REL = 40.0        # mm/s rel; sama dengan pick_place.F_RAIL (lebih cepat = step hilang)
+
+# Ukuran yang memakai X/Y harus diambil dengan rel di E=0: X/Y dihitung dari
+# badan robot, dan badan ikut bergeser bersama rel.
+KUNCI_PERLU_REL_NOL = {"bak_koin", "bak_tutup_botol", "parkir"}
+TOLERANSI_REL = 0.5  # mm
 
 # Perintah yang dijalankan LANGSUNG di thread HTTP: tidak menyentuh port
 # serial, jadi boleh diproses walau pekerja sedang sibuk.
 LANGSUNG = {"berhenti", "jog_detak", "jog_lepas", "setel_jog", "tandai",
-            "hapus_titik"}
+            "hapus_titik",
+            # rekam & kelola preset hanya mengubah data, bukan robot
+            "rekam_mulai", "rekam_catat", "rekam_tunggu", "rekam_hapus_langkah",
+            "rekam_simpan", "rekam_batal", "preset_hapus", "preset_pulihkan",
+            "preset_kosongkan_sampah",
+            # kendali putar harus bisa masuk SELAGI preset berjalan
+            "preset_jeda", "preset_lanjut", "preset_berhenti"}
 
 SUMBU_JOG = {"rot", "y", "z", "e"}
 
@@ -107,10 +123,12 @@ class Pengendali:
     """
 
     def __init__(self, buat_robot=None, berkas_setelan=None,
-                 berkas_titik=BERKAS_TITIK, jeda_sim=True):
+                 berkas_titik=BERKAS_TITIK, jeda_sim=True,
+                 berkas_preset=BERKAS_PRESET):
         self.buat_robot = buat_robot or _buat_robot
         self.berkas_setelan = berkas_setelan
         self.berkas_titik = berkas_titik
+        self.berkas_preset = berkas_preset
         self.jeda_sim = jeda_sim
         self.log = Log()
 
@@ -123,6 +141,14 @@ class Pengendali:
         self.setelan = setelan.muat(berkas_setelan)
         setelan.terapkan(self.setelan)
         self.titik = self._muat_titik()
+        self.preset, galat = mod_preset.muat(berkas_preset)
+        if galat:
+            self.log.tulis(f"{galat}; daftar preset dimulai kosong (berkas lama "
+                           f"tidak ditimpa sampai ada perubahan)", "peringatan")
+        self.rekam = None            # list langkah selagi merekam, atau None
+        self.putar = None            # kemajuan preset yang sedang diputar
+        self._status_preset = (None, None)
+        self._jeda = threading.Event()
 
         self._antrean = queue.Queue()
         self._kunci = threading.Lock()
@@ -195,6 +221,13 @@ class Pengendali:
                           "home": [rnv3.HOME_X, rnv3.HOME_Y, rnv3.HOME_Z],
                           "rel_panjang": rnv3.RAIL_LENGTH},
             "log": self.log.sejak(sejak),
+            "rekam": self.rekam,
+            "preset": self._preset_dengan_status(),
+            "sampah": [{"id": p["id"], "nama": p["nama"],
+                        "dihapus": p.get("dihapus", ""),
+                        "jumlah": len(p["langkah"])} for p in self.preset["sampah"]],
+            "putar": self.putar,
+            "kecepatan_preset": list(KECEPATAN_PRESET),
         }
         if j is not None:
             s["jog"] = {
@@ -364,6 +397,7 @@ class Pengendali:
 
     def _aksi_berhenti(self):
         self._henti.set()
+        self._jeda.clear()           # preset yang sedang dijeda harus bangun untuk berhenti
         with self._kunci:
             self._tahan = None
         dibuang = 0
@@ -388,11 +422,15 @@ class Pengendali:
         self.vakum = bool(nyala)
         if self.jog:
             self.jog.vakum = self.vakum
+        if self.rekam is not None:
+            self.rekam.append({"jenis": "vakum", "nyala": self.vakum})
         return f"vakum {'NYALA' if nyala else 'MATI'}"
 
     def _aksi_gripper(self, buka):
         self._perlu_bot(homing=False)
         self.bot.gripper(rnv3.SERVO_OPEN if buka else rnv3.SERVO_CLOSED)
+        if self.rekam is not None:
+            self.rekam.append({"jenis": "gripper", "buka": bool(buka)})
         return f"gripper {'buka' if buka else 'genggam'}"
 
     def _aksi_posisi(self):
@@ -457,9 +495,15 @@ class Pengendali:
         return "motor dirilis: lengan bisa digeser tangan. Homing ulang setelahnya"
 
     # -- aksi: ukur ------------------------------------------------------------
-    def _aksi_ukur_simpan(self, kunci):
+    def _aksi_ukur_simpan(self, kunci, paksa=False):
         self._perlu_bot()
         b = self.bot
+        if kunci in KUNCI_PERLU_REL_NOL and abs(b.e) > TOLERANSI_REL and not paksa:
+            # X/Y dihitung dari BADAN robot, dan badan ikut bergeser bersama
+            # rel. Bak yang diukur di E=190 meleset 19 cm saat robot di E=0.
+            raise AplikasiError(
+                f"rel di E={b.e:.1f}, bukan 0: posisi {_NAMA_UKUR[kunci]} akan "
+                f"meleset saat robot di E=0. Bawa rel ke 0 dulu")
         try:
             baru = setelan.isi_dari_posisi(self.setelan, kunci, b.x, b.y, b.z)
             berkas = setelan.simpan(baru, self.berkas_setelan)
@@ -474,6 +518,26 @@ class Pengendali:
         if self.masalah:
             pesan += f" -- tapi ada {len(self.masalah)} masalah konfigurasi"
         return pesan
+
+    def _aksi_ukur_reset(self):
+        """Kembalikan SEMUA angka ukur ke bawaan (hapus berkas setelan)."""
+        try:
+            ada = setelan.hapus(self.berkas_setelan)
+        except (RuntimeError, OSError) as e:
+            raise AplikasiError(f"setelan tidak bisa direset: {e}") from None
+        self.setelan = setelan.muat(self.berkas_setelan)
+        setelan.terapkan(self.setelan)
+        if self.jog is not None:
+            self.jog.parkir_titik = (*self.setelan["parkir"], 0.0)
+        self._validasi()
+        return ("semua angka ukur kembali ke angka awal" if ada
+                else "angka ukur memang sudah angka awal")
+
+    def _aksi_rel_nol(self):
+        """Bawa rel ke E=0 di XYZ yang sama -- titik acuan semua ukuran."""
+        self._perlu_bot()
+        self.bot.move(e=0.0, f=F_REL)
+        return "rel di E=0"
 
     def _aksi_ukur_pergi(self, kunci):
         """Pergi ke titik tersimpan lewat Z aman. Tidak turun ke bak."""
@@ -497,6 +561,10 @@ class Pengendali:
 
     def _aksi_tandai(self):
         self._perlu_bot()
+        if self.sibuk is not None:
+            # Sama dengan rekam_catat: selagi bergerak, posisi yang dilacak
+            # masih posisi SEBELUM gerakan.
+            raise AplikasiError("tunggu lengan berhenti dulu, baru tandai titik")
         b = self.bot
         self.titik.append({"x": round(b.x, 2), "y": round(b.y, 2),
                            "z": round(b.z, 2), "e": round(b.e, 2),
@@ -528,7 +596,266 @@ class Pengendali:
         self.log.tulis(f"{n} titik dihapus, sisa {len(self.titik)}", "ok")
         return "ok"
 
+    # -- aksi: rekam preset ----------------------------------------------------
+    def _aksi_rekam_mulai(self):
+        self._perlu_bot()
+        if self.putar is not None:
+            raise AplikasiError("preset sedang diputar")
+        self.rekam = []
+        self.log.tulis("mulai merekam: jog lalu Catat posisi; vakum dan "
+                       "gripper tercatat otomatis", "ok")
+        return "ok"
+
+    def _perlu_rekam(self):
+        if self.rekam is None:
+            raise AplikasiError("tekan Rekam baru dulu")
+
+    def _aksi_rekam_catat(self):
+        self._perlu_rekam()
+        self._perlu_bot()
+        if self.sibuk is not None:
+            # Posisi yang dilacak baru diperbarui SETELAH gerakan selesai;
+            # mencatat sekarang = menyimpan posisi lama tanpa disadari.
+            raise AplikasiError("tunggu lengan berhenti dulu, baru catat posisi")
+        b = self.bot
+        langkah = mod_preset.langkah_gerak(b.x, b.y, b.z, b.e)
+        gerak = [l for l in self.rekam if l["jenis"] == "gerak"]
+        if gerak and gerak[-1] == langkah:
+            raise AplikasiError("posisi ini sama dengan posisi yang terakhir dicatat")
+        self.rekam.append(langkah)
+        return "ok"
+
+    def _aksi_rekam_tunggu(self, detik):
+        self._perlu_rekam()
+        try:
+            self.rekam.append(mod_preset.rapikan_langkah(
+                {"jenis": "tunggu", "detik": detik}))
+        except mod_preset.PresetError as e:
+            raise AplikasiError(str(e)) from None
+        return "ok"
+
+    def _aksi_rekam_hapus_langkah(self):
+        self._perlu_rekam()
+        if not self.rekam:
+            raise AplikasiError("rekaman masih kosong")
+        self.rekam.pop()
+        return "ok"
+
+    def _aksi_rekam_simpan(self, nama):
+        self._perlu_rekam()
+        if not any(l["jenis"] == "gerak" for l in self.rekam):
+            raise AplikasiError("catat minimal satu posisi sebelum menyimpan")
+        try:
+            baru, p = mod_preset.tambah(self.preset, nama, self.rekam)
+        except mod_preset.PresetError as e:
+            raise AplikasiError(str(e)) from None
+        self._simpan_preset(baru)
+        self.rekam = None
+        self.log.tulis(f"preset '{p['nama']}' disimpan ({len(p['langkah'])} langkah)", "ok")
+        return "ok"
+
+    def _aksi_rekam_batal(self):
+        self.rekam = None
+        return "ok"
+
+    # -- aksi: kelola preset ---------------------------------------------------
+    def _aksi_preset_hapus(self, ids=None, semua=False, terakhir=False):
+        daftar = self.preset["preset"]
+        if semua:
+            ids = [p["id"] for p in daftar]
+        elif terakhir:
+            ids = [daftar[-1]["id"]] if daftar else []
+        if not ids:
+            raise AplikasiError("tidak ada preset yang dipilih")
+        try:
+            baru = mod_preset.buang(self.preset, ids)
+        except mod_preset.PresetError as e:
+            raise AplikasiError(str(e)) from None
+        self._simpan_preset(baru)
+        self.log.tulis(f"{len(ids)} preset dipindah ke sampah", "ok")
+        return "ok"
+
+    def _aksi_preset_pulihkan(self, id):                  # noqa: A002 (nama dari JSON)
+        try:
+            self._simpan_preset(mod_preset.pulihkan(self.preset, id))
+        except mod_preset.PresetError as e:
+            raise AplikasiError(str(e)) from None
+        return "ok"
+
+    def _aksi_preset_kosongkan_sampah(self):
+        self._simpan_preset(mod_preset.kosongkan_sampah(self.preset))
+        self.log.tulis("sampah preset dikosongkan", "ok")
+        return "ok"
+
+    # -- aksi: putar preset ----------------------------------------------------
+    def _aksi_preset_jalan(self, ids, ulang=1, kecepatan=40.0):
+        """Putar preset terpilih berurutan, `ulang` kali (0 = terus)."""
+        self._perlu_bot()
+        if self.rekam is not None:
+            raise AplikasiError("selesaikan atau batalkan rekaman dulu")
+        if isinstance(ulang, bool) or not isinstance(ulang, int) or not 0 <= ulang <= 9999:
+            raise AplikasiError("jumlah ulang tidak valid")
+        if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+            raise AplikasiError("daftar preset tidak valid")
+        if float(kecepatan) not in KECEPATAN_PRESET:
+            raise AplikasiError(f"kecepatan harus salah satu dari {KECEPATAN_PRESET}")
+        try:
+            daftar = [copy.deepcopy(mod_preset.cari(self.preset, i)) for i in ids]
+        except mod_preset.PresetError as e:
+            raise AplikasiError(str(e)) from None
+        if not daftar:
+            raise AplikasiError("centang minimal satu preset")
+        b = self.bot
+        ok, alasan = mod_preset.validasi_urutan(daftar, (b.x, b.y, b.z, b.e),
+                                                berulang=ulang != 1)
+        if not ok:
+            # Ditolak SEBELUM bergerak: lebih baik tidak jalan sama sekali
+            # daripada berhenti di tengah putaran ke-37.
+            raise AplikasiError(f"tidak dijalankan, {alasan}")
+        return self._putar(daftar, ulang, float(kecepatan))
+
+    def _aksi_preset_coba(self, id):                      # noqa: A002
+        return self._aksi_preset_jalan([id], ulang=1, kecepatan=F_COBA)
+
+    def _aksi_preset_ke_langkah(self, id, nomor):         # noqa: A002
+        """Pergi ke satu langkah gerak saja, lewat tinggi aman."""
+        self._perlu_bot()
+        try:
+            l = mod_preset.cari(self.preset, id)["langkah"][int(nomor) - 1]
+        except (mod_preset.PresetError, IndexError, ValueError, TypeError):
+            raise AplikasiError("langkah tidak ada") from None
+        if l["jenis"] != "gerak":
+            raise AplikasiError("hanya langkah gerak yang punya posisi")
+        b = self.bot
+        asal = (b.x, b.y, b.z, b.e)
+        rute = mod_preset.rencana_gerak(asal, mod_preset._titik(l), True)
+        ok, alasan = mod_preset.periksa_rute(asal, rute)
+        if not ok:
+            raise AplikasiError(f"tidak bisa ke sana: {alasan}")
+        for t in rute:
+            self._gerak_ke(t, F_PERGI)
+        return f"di langkah {nomor}"
+
+    def _aksi_preset_jeda(self):
+        if self.putar is None:
+            raise AplikasiError("tidak ada preset yang sedang diputar")
+        self._jeda.set()
+        return "ok"
+
+    def _aksi_preset_lanjut(self):
+        self._jeda.clear()
+        return "ok"
+
+    def _aksi_preset_berhenti(self):
+        if self.putar is None:
+            raise AplikasiError("tidak ada preset yang sedang diputar")
+        self._henti.set()
+        self._jeda.clear()
+        return "ok"
+
+    def _putar(self, daftar, ulang, f):
+        self._jeda.clear()
+        total_putaran = ulang or None
+        putaran = 0
+        try:
+            while total_putaran is None or putaran < total_putaran:
+                putaran += 1
+                for p in daftar:
+                    pertama = True
+                    for n, l in enumerate(p["langkah"], 1):
+                        self.putar = {"keadaan": "jalan", "putaran": putaran,
+                                      "total": total_putaran, "nama": p["nama"],
+                                      "langkah_ke": n, "total_langkah": len(p["langkah"])}
+                        if not self._tunggu_jeda():
+                            return self._putar_dihentikan(putaran)
+                        self._jalankan_langkah(l, pertama, f)
+                        if l["jenis"] == "gerak":
+                            pertama = False
+            return f"preset selesai: {putaran} putaran"
+        except RNV3Error:
+            # Posisi mungkin tidak bisa dipercaya: matikan vakum, JANGAN
+            # bergerak otomatis. Galatnya dicatat pekerja.
+            self._vakum_mati_diam()
+            raise
+        finally:
+            self.putar = None
+            self._jeda.clear()
+
+    def _tunggu_jeda(self):
+        """Tahan di sini selama dijeda. False kalau diminta berhenti."""
+        while self._jeda.is_set() and not self._henti.is_set():
+            if self.putar:
+                self.putar["keadaan"] = "jeda"
+            time.sleep(0.05)
+        return not self._henti.is_set()
+
+    def _jalankan_langkah(self, l, lewat_aman, f):
+        jenis = l["jenis"]
+        if jenis == "gerak":
+            b = self.bot
+            for t in mod_preset.rencana_gerak((b.x, b.y, b.z, b.e),
+                                              mod_preset._titik(l), lewat_aman):
+                self._gerak_ke(t, f)
+        elif jenis == "vakum":
+            # Langsung ke robot, BUKAN _aksi_vakum: memutar preset tidak
+            # boleh ikut menambah langkah ke rekaman.
+            self.bot.vacuum(l["nyala"])
+            self.vakum = l["nyala"]
+            if self.jog:
+                self.jog.vakum = self.vakum
+        elif jenis == "gripper":
+            self.bot.gripper(rnv3.SERVO_OPEN if l["buka"] else rnv3.SERVO_CLOSED)
+        elif jenis == "tunggu":
+            akhir = time.monotonic() + l["detik"]
+            while time.monotonic() < akhir and not self._henti.is_set():
+                time.sleep(0.05)
+
+    def _gerak_ke(self, t, f):
+        b = self.bot
+        jarak = math.dist((b.x, b.y, b.z, b.e), t)
+        b.move(x=t[0], y=t[1], z=t[2], e=t[3], f=f)
+        self._jeda_sim(jarak, f)
+
+    def _putar_dihentikan(self, putaran):
+        """Berhenti: langkah berjalan sudah selesai -> vakum OFF -> home."""
+        if self.vakum:
+            self.bot.vacuum(False)
+            self.vakum = False
+            if self.jog:
+                self.jog.vakum = False
+        if self.bot.position_known and self.jog is not None:
+            self.jog.pulang()
+        return (f"preset dihentikan di putaran {putaran}: vakum mati, lengan "
+                f"pulang ke home, motor tetap terkunci")
+
+    def _vakum_mati_diam(self):
+        try:
+            if self.vakum:
+                self.bot.vacuum(False)
+                self.vakum = False
+        except RNV3Error:
+            pass
+
     # -- bantu -----------------------------------------------------------------
+    def _simpan_preset(self, baru):
+        try:
+            self.preset = mod_preset.simpan(baru, self.berkas_preset)
+        except OSError as e:
+            raise AplikasiError(f"preset tidak tersimpan: {e}") from None
+
+    def _preset_dengan_status(self):
+        """Daftar preset + status validasi per langkah, di-cache per isi."""
+        kunci = json.dumps(self.preset["preset"], sort_keys=True)
+        if self._status_preset[0] == kunci:
+            return self._status_preset[1]
+        hasil = []
+        for p in self.preset["preset"]:
+            status = mod_preset.validasi_internal(p)
+            hasil.append({**p, "status": status,
+                          "ok": all(s["ok"] for s in status)})
+        self._status_preset = (kunci, hasil)
+        return hasil
+
     def _validasi(self):
         self.masalah = jalur.validasi_konfigurasi(cetak=False)
 
@@ -584,6 +911,9 @@ _LABEL = {
     "parkir": "parkir", "selesai": "pulang ke home", "matikan": "mematikan",
     "rilis_motor": "merilis motor", "ukur_simpan": "menyimpan",
     "ukur_pergi": "pergi ke titik", "rekam_batas": "merekam batas",
+    "ukur_reset": "mereset setelan", "rel_nol": "membawa rel ke 0",
+    "preset_jalan": "memutar preset", "preset_coba": "mencoba preset",
+    "preset_ke_langkah": "pergi ke langkah",
 }
 
 _NAMA_UKUR = {

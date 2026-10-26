@@ -144,6 +144,22 @@ def simpan(data, berkas=None):
     return berkas
 
 
+def hapus(berkas=None):
+    """Kembali ke BAWAAN dengan menghapus berkas. Return True kalau ada yang dihapus.
+
+    Menghapus (bukan menulis BAWAAN ke berkas) supaya "belum pernah diukur"
+    tetap terbaca jujur: berkas tidak ada = semua angka masih bawaan.
+    """
+    berkas = berkas if berkas is not None else berkas_aktif()
+    if berkas is None:
+        raise RuntimeError("RNV3_SETELAN=- : berkas setelan sengaja diabaikan")
+    try:
+        os.remove(berkas)
+        return True
+    except FileNotFoundError:
+        return False
+
+
 def isi_dari_posisi(data, kunci, x, y, z, waktu=None):
     """Salinan `data` dengan `kunci` diisi dari posisi lengan (x, y, z)."""
     if kunci not in KUNCI_UKUR:
