@@ -115,8 +115,11 @@ class Deteksi:
         if not isinstance(d, dict):
             raise KameraError(
                 f"tiap objek harus dict, dapat {type(d).__name__}: {d!r}")
-        punya_mm = "x_mm" in d and "y_mm" in d
-        punya_px = "u_px" in d and "v_px" in d
+        # null dianggap sama dengan tidak dikirim: Deteksi.ke_dict() (dipakai
+        # _Handler di bawah) selalu menyertakan x_mm/y_mm, berisi None kalau
+        # kamera cuma tahu piksel.
+        punya_mm = d.get("x_mm") is not None and d.get("y_mm") is not None
+        punya_px = d.get("u_px") is not None and d.get("v_px") is not None
         if not punya_mm and not punya_px:
             raise KameraError(
                 f"objek harus punya x_mm+y_mm ATAU u_px+v_px, tidak ada "

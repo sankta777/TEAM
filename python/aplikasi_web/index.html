@@ -118,8 +118,6 @@
             <h2>Alat</h2>
             <div class="baris-tombol">
               <button id="tombol-vakum" data-perlu="homing" aria-pressed="false"><kbd>V</kbd>Vakum</button>
-              <button data-aksi="gripper" data-isi='{"buka":true}' data-perlu="homing">Gripper buka</button>
-              <button data-aksi="gripper" data-isi='{"buka":false}' data-perlu="homing">Gripper genggam</button>
             </div>
           </section>
           <section class="panel">
@@ -133,17 +131,13 @@
             <h2>Selesai kerja</h2>
             <div class="baris-tombol">
               <button data-aksi="selesai" data-perlu="homing" class="utama">Selesai, ke home</button>
-              <button data-aksi="parkir" data-perlu="homing">Parkir</button>
               <button id="tombol-matikan" data-perlu="homing" class="bahaya">Matikan robot</button>
             </div>
-            <p class="bantu">Selesai = lengan pulang ke home dan motor tetap terkunci. Matikan = parkir rendah lalu motor dilepas, untuk akhir hari.</p>
           </section>
           <details class="panel lanjutan">
             <summary>Lanjutan</summary>
             <div class="baris-tombol">
-              <button id="tombol-rilis" data-perlu="tersambung" class="bahaya">Rilis motor</button>
-              <button id="tombol-homing-ulang" data-perlu="tersambung">Homing ulang</button>
-              <button data-aksi="putus" data-perlu="tersambung" class="ghost">Putuskan</button>
+              <button id="tombol-homing-ulang" data-perlu="tersambung">Kalibrasi ulang</button>
             </div>
           </details>
         </div>
@@ -202,9 +196,14 @@
       <section class="panel">
         <div class="judul-baris">
           <h2>Rekam</h2>
-          <button id="rekam-mulai" class="utama">Rekam baru</button>
+          <div class="baris-tombol" id="rekam-awal">
+            <label class="isian-kecil" for="rekam-otomatis">
+              <input id="rekam-otomatis" type="checkbox" checked> Rekam semua gerakan</label>
+            <button id="rekam-mulai" class="utama">Rekam baru</button>
+          </div>
         </div>
         <div id="rekam-aktif" hidden>
+          <p id="rekam-mode" class="bantu"></p>
           <ol id="rekam-langkah" class="daftar-langkah"></ol>
           <p id="rekam-kosong" class="kosong">Jog ke posisi pertama, lalu tekan Catat posisi.</p>
           <div class="baris-tombol">
@@ -268,6 +267,7 @@
           <button id="putar-berhenti" class="bahaya">Berhenti</button>
         </div>
         <p id="putar-kemajuan" class="kemajuan" aria-live="polite"></p>
+        <p id="putar-galat" class="masalah" role="alert" hidden></p>
       </section>
     </section>
   </main>
@@ -297,7 +297,7 @@
       <li><strong>Homing.</strong> Wajib sebelum gerak apa pun. Setelah homing, lengan bawah tegak dan lengan atas datar.</li>
       <li><strong>Kerja.</strong> Jog, ukur, tandai titik.</li>
       <li><strong>Selesai, ke home</strong> kalau masih lanjut nanti. Motor tetap terkunci, lengan tidak jatuh.</li>
-      <li><strong>Matikan robot</strong> di akhir hari: lengan parkir rendah, kamu pegang lengannya, baru motor dilepas. Setelah itu saklar 12V aman dimatikan.</li>
+      <li><strong>Matikan robot</strong> di akhir hari: lengan pulang ke home, kamu pegang lengannya, baru motor dilepas. Setelah itu saklar 12V aman dimatikan.</li>
     </ol>
     <h3>Tombol keyboard</h3>
     <dl class="daftar-tombol">
@@ -328,14 +328,17 @@
     </ul>
     <h3>Preset</h3>
     <ol>
-      <li><strong>Rekam baru</strong>, jog ke posisi pertama, tekan <strong>Catat posisi</strong> (C). Ulangi untuk tiap posisi. Vakum dan gripper yang kamu tekan selama merekam ikut tercatat. Tambah tunggu kalau perlu jeda.</li>
+      <li><strong>Rekam baru</strong> dengan <strong>Rekam semua gerakan</strong> dicentang: gerakkan lengan seperti biasa (naik, geser, turun). Jalurnya tercatat sendiri dan diputar ulang lewat jalur yang sama. Jog beruntun di sumbu yang sama digabung jadi satu langkah.</li>
+      <li>Kalau centangnya dilepas, hanya posisi yang kamu <strong>Catat posisi</strong> (C) yang tersimpan, dan lengan bergerak lurus di antaranya.</li>
+      <li>Vakum dan gripper yang kamu tekan selama merekam ikut tercatat. Tambah tunggu kalau perlu jeda. Salah gerak? <strong>Hapus langkah terakhir</strong>.</li>
       <li>Beri nama, <strong>Simpan preset</strong>.</li>
       <li><strong>Lihat</strong> untuk memeriksa langkahnya. Langkah merah tidak bisa dijangkau; preset yang punya langkah merah tidak bisa dijalankan.</li>
       <li><strong>Coba sekali</strong> memutar satu preset pelan (20 mm/s). Pakai ini dulu di robot asli.</li>
       <li>Untuk loop: centang preset, atur jumlah ulang atau Terus, tekan <strong>Jalan</strong>. Urutannya mengikuti nomor.</li>
     </ol>
     <ul>
-      <li>Di dalam satu preset lengan bergerak lurus seperti direkam. Saat masuk ke preset (dan saat loop kembali ke preset pertama) lengan naik dulu ke tinggi aman, pindah, baru turun.</li>
+      <li>Di dalam satu preset lengan bergerak lurus dari langkah ke langkah, tanpa naik sendiri. Saat masuk ke preset (dan saat loop kembali ke preset pertama) lengan naik dulu ke tinggi aman, pindah, baru turun. Kalau lengan terlalu rendah dan dekat badan untuk naik tegak, lengan pulang lurus ke home dulu (seperti Selesai, ke home), baru pindah.</li>
+      <li>Kalau preset ditolak, alasannya muncul merah di bawah tombol Jalan.</li>
       <li><strong>Jeda</strong> berhenti setelah langkah yang sedang jalan; <strong>Jalan</strong> melanjutkan. <strong>Berhenti</strong> menyelesaikan langkah itu, mematikan vakum, lalu lengan pulang ke home.</li>
       <li>Preset yang dihapus masuk Sampah dulu dan masih bisa dipulihkan.</li>
     </ul>

@@ -8,6 +8,10 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 let S = null;                 // status terakhir dari server
 let logTerakhir = 0;
 let serverHidup = true;
+// Preset yang ditolak tercatat di log tab Kontrol saja -- dari tab Preset
+// tampak seperti tombol Jalan tidak merespons. Setelah tombol putar ditekan,
+// galat berikutnya juga ditampilkan di panel Putar.
+let galatPutarDitunggu = false;
 const cache = {};             // potongan tampilan yang hanya digambar ulang kalau berubah
 
 const KUNCI_JOG = {
@@ -222,6 +226,17 @@ function tambahLog(baris) {
   ol.append(li);
   while (ol.children.length > 250) ol.firstChild.remove();
   if (diDasar) ol.scrollTop = ol.scrollHeight;
+  if (baris.jenis === "galat" && galatPutarDitunggu) {
+    const p = $("#putar-galat");
+    p.textContent = baris.teks;
+    p.hidden = false;
+  }
+}
+
+function kirimPutar(aksi, isi) {
+  galatPutarDitunggu = true;
+  $("#putar-galat").hidden = true;
+  return kirim(aksi, isi);
 }
 
 function tulisLokal(teks, jenis = "info") {
@@ -430,10 +445,11 @@ function gambarPeta() {
 // ---------------------------------------------------------------- ukur
 // Sumbu yang diambil tiap ukuran (sama dengan setelan.KUNCI_UKUR).
 const SUMBU_UKUR = {
-  z_belt: ["z"], z_bak: ["z"], bak_koin: ["x", "y"], bak_tutup_botol: ["x", "y"], parkir: ["x", "y", "z"],
+  z_belt: ["z"], z_bak: ["z"], bak_koin: ["x", "y"], bak_tutup_botol: ["x", "y"], parkir: ["x", "y", "z", "e"],
 };
 // X/Y dihitung dari badan robot, yang ikut bergeser bersama rel.
-const PERLU_REL_NOL = new Set(["bak_koin", "bak_tutup_botol", "parkir"]);
+// Parkir tidak termasuk: dia menyimpan posisi rel-nya sendiri.
+const PERLU_REL_NOL = new Set(["bak_koin", "bak_tutup_botol"]);
 
 const tidurMs = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -482,7 +498,7 @@ function gambarUkur() {
         z_bak: `Z ${angka(s.z_bak)}`,
         bak_koin: `X ${angka(s.bak.koin[0])}  Y ${angka(s.bak.koin[1])}`,
         bak_tutup_botol: `X ${angka(s.bak.tutup_botol[0])}  Y ${angka(s.bak.tutup_botol[1])}`,
-        parkir: `X ${angka(s.parkir[0])}  Y ${angka(s.parkir[1])}  Z ${angka(s.parkir[2])}`,
+        parkir: `X ${angka(s.parkir[0])}  Y ${angka(s.parkir[1])}  Z ${angka(s.parkir[2])}  E ${angka(s.parkir[3])}`,
       }[u.kunci];
       const waktu = s.diukur[u.kunci];
       li.innerHTML = `
@@ -510,7 +526,7 @@ function gambarUkur() {
           const ok = await tanya({
             judul: `Pergi ke ${u.nama.toLowerCase()}?`,
             isi: u.kunci === "parkir"
-              ? "Lengan geser mendatar ke atas titik parkir, lalu turun ke tinggi parkir."
+              ? "Lengan geser mendatar ke atas titik parkir, rel pindah ke posisi parkir, lalu lengan turun ke tinggi parkir."
               : "Lengan naik ke Z aman dulu, lalu pindah ke atas titik ini. Tidak turun ke bak.",
             cek: ["Jalur lengan bersih dari benda dan tangan"],
           });
@@ -633,10 +649,16 @@ function gambarPreset() {
   const putar = S.putar;
 
   // --- rekam
-  $("#rekam-mulai").hidden = merekam;
+  $("#rekam-awal").hidden = merekam;
   $("#rekam-mulai").disabled = !bisaGerak || !!putar;
   $("#rekam-aktif").hidden = !merekam;
   if (merekam) {
+    $("#rekam-mode").textContent = S.rekam_otomatis
+      ? "Merekam semua gerakan. Jog seperti biasa; Catat posisi tidak wajib."
+      : "Merekam titik saja. Tekan Catat posisi di tiap posisi; lengan bergerak lurus di antaranya.";
+    $("#rekam-kosong").textContent = S.rekam_otomatis
+      ? "Mulai jog, gerakanmu tercatat di sini."
+      : "Jog ke posisi pertama, lalu tekan Catat posisi.";
     const kunci = JSON.stringify(S.rekam);
     if (cache.rekam !== kunci) {
       cache.rekam = kunci;
@@ -710,7 +732,7 @@ function gambarPreset() {
           cek: ["Jalur lengan bersih dari benda dan tangan"],
           ya: "Coba sekali",
         });
-        if (ok) kirim("preset_coba", { id: p.id });
+        if (ok) kirimPutar("preset_coba", { id: p.id });
       });
       tombol.append(lihat, coba);
       baris.append(c, nama, info, lencana, tombol);
@@ -731,7 +753,7 @@ function gambarPreset() {
             ke.textContent = "Ke sini";
             ke.className = "ghost kecil";
             ke.disabled = !bisaGerak || !!putar || !s.ok;
-            ke.addEventListener("click", () => kirim("preset_ke_langkah", { id: p.id, nomor: n + 1 }));
+            ke.addEventListener("click", () => kirimPutar("preset_ke_langkah", { id: p.id, nomor: n + 1 }));
             item.append(ke);
           }
           ol.append(item);
@@ -851,7 +873,7 @@ function pasangTombol() {
 
   $("#tombol-homing-ulang").addEventListener("click", async () => {
     const ok = await tanya({
-      judul: "Homing ulang?",
+      judul: "Kalibrasi ulang robot?",
       isi: "Keempat sumbu bergerak sendiri mencari titik nol. Firmware melepas motor sebentar di awal homing, jadi lengan yang sedang tinggi bisa turun.",
       cek: CEK_HOMING,
       ya: "Mulai homing",
@@ -862,23 +884,12 @@ function pasangTombol() {
   $("#tombol-matikan").addEventListener("click", async () => {
     const ok = await tanya({
       judul: "Matikan robot?",
-      isi: "Lengan parkir rendah, lalu motor dilepas dan lengan jadi loyo. Setelah ini saklar 12V aman dimatikan. Untuk gerak lagi perlu homing.",
-      cek: ["Saya sedang memegang lengan robot", "Di bawah titik parkir kosong"],
-      ya: "Parkir dan matikan motor",
+      isi: "Lengan pulang ke home, lalu motor dilepas dan lengan jadi loyo. Setelah ini saklar 12V aman dimatikan. Untuk gerak lagi perlu homing.",
+      cek: ["Pegang lengan robot"],
+      ya: "Matikan motor",
       bahaya: true,
     });
     if (ok) kirim("matikan", { dipegang: true });
-  });
-
-  $("#tombol-rilis").addEventListener("click", async () => {
-    const ok = await tanya({
-      judul: "Rilis motor di posisi ini?",
-      isi: "Motor dilepas DI TEMPAT, tanpa parkir. Lengan bisa jatuh karena gravitasi. Setelah ini posisi tidak diketahui dan wajib homing ulang.",
-      cek: ["Saya sedang memegang lengan robot"],
-      ya: "Rilis motor",
-      bahaya: true,
-    });
-    if (ok) kirim("rilis_motor", { dipegang: true });
   });
 
   // --- ukur: reset
@@ -893,7 +904,8 @@ function pasangTombol() {
   });
 
   // --- preset: rekam
-  $("#rekam-mulai").addEventListener("click", () => kirim("rekam_mulai"));
+  $("#rekam-mulai").addEventListener("click", () =>
+    kirim("rekam_mulai", { otomatis: $("#rekam-otomatis").checked }));
   $("#rekam-catat").addEventListener("click", () => kirim("rekam_catat"));
   $("#rekam-vakum").addEventListener("click", () => kirim("vakum", { nyala: !S.vakum }));
   $("#rekam-tunggu").addEventListener("click", () => {
@@ -954,7 +966,7 @@ function pasangTombol() {
       cek: ["Jalur lengan bersih dari benda dan tangan"],
       ya: "Jalan",
     });
-    if (ok) kirim("preset_jalan", { ids, ulang, kecepatan: kecepatanPutar });
+    if (ok) kirimPutar("preset_jalan", { ids, ulang, kecepatan: kecepatanPutar });
   });
   $("#putar-jeda").addEventListener("click", () => kirim("preset_jeda"));
   $("#putar-berhenti").addEventListener("click", () => kirim("preset_berhenti"));

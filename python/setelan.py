@@ -11,7 +11,8 @@ Yang disimpan di sini HANYA angka yang diukur di robot nyata:
     z_belt     permukaan atas belt (Z ujung vakum menyentuh belt)
     z_bak      dasar bak keluaran
     bak        {label: [x, y]} tengah tiap bak
-    parkir     [x, y, z] titik parkir; di bawahnya harus KOSONG
+    parkir     [x, y, z, e] titik parkir (e = posisi rel); di bawahnya harus
+               KOSONG. Berkas lama berisi [x, y, z] dibaca sebagai e=0.
     diukur     {kunci: "YYYY-mm-dd HH:MM"} kapan tiap angka terakhir diukur.
                Kunci yang tidak ada di sini = masih angka tebakan.
 
@@ -41,7 +42,7 @@ BAWAAN = {
         "tutup_botol": [-170.0, 215.0],
         "koin": [-55.0, 300.0],
     },
-    "parkir": [0.0, 217.0, -40.0],
+    "parkir": [0.0, 217.0, -40.0, 0.0],
     "diukur": {},
 }
 
@@ -51,7 +52,7 @@ KUNCI_UKUR = {
     "z_bak": ("z",),
     "bak_koin": ("x", "y"),
     "bak_tutup_botol": ("x", "y"),
-    "parkir": ("x", "y", "z"),
+    "parkir": ("x", "y", "z", "e"),
 }
 
 
@@ -99,7 +100,10 @@ def rapikan(data):
         for label, xy in data["bak"].items():
             hasil["bak"][str(label)] = _pasangan(xy, 2, f"bak.{label}")
     if "parkir" in data:
-        hasil["parkir"] = _pasangan(data["parkir"], 3, "parkir")
+        parkir = data["parkir"]
+        if isinstance(parkir, (list, tuple)) and len(parkir) == 3:
+            parkir = [*parkir, 0.0]     # berkas lama, sebelum rel ikut parkir
+        hasil["parkir"] = _pasangan(parkir, 4, "parkir")
     if "diukur" in data:
         if not isinstance(data["diukur"], dict):
             raise ValueError("diukur harus objek {kunci: waktu}")
@@ -160,8 +164,8 @@ def hapus(berkas=None):
         return False
 
 
-def isi_dari_posisi(data, kunci, x, y, z, waktu=None):
-    """Salinan `data` dengan `kunci` diisi dari posisi lengan (x, y, z)."""
+def isi_dari_posisi(data, kunci, x, y, z, waktu=None, e=0.0):
+    """Salinan `data` dengan `kunci` diisi dari posisi lengan (x, y, z, e)."""
     if kunci not in KUNCI_UKUR:
         raise ValueError(f"kunci tidak dikenal: {kunci!r}")
     hasil = rapikan(data)
@@ -172,7 +176,7 @@ def isi_dari_posisi(data, kunci, x, y, z, waktu=None):
                                              round(float(y), 2)]
     elif kunci == "parkir":
         hasil["parkir"] = [round(float(x), 2), round(float(y), 2),
-                           round(float(z), 2)]
+                           round(float(z), 2), round(float(e), 2)]
     hasil["diukur"][kunci] = waktu or time.strftime("%Y-%m-%d %H:%M")
     return hasil
 
@@ -184,20 +188,22 @@ def terapkan(data):
     baru memanggil ini supaya jalur/jog/pick_place langsung memakainya.
     """
     data = rapikan(data)
-    px, py, pz = data["parkir"]
+    px, py, pz, pe = data["parkir"]
     jalur = sys.modules.get("jalur")
     if jalur is not None:
         jalur.Z_BELT = data["z_belt"]
         jalur.Z_BAK = data["z_bak"]
         jalur.PARKIR_XY = (px, py)
         jalur.Z_PARKIR = pz
+        jalur.PARKIR_E = pe
         for label, xy in data["bak"].items():
             if label in jalur.JENIS:
                 jalur.JENIS[label]["taruh"] = tuple(xy)
     jog = sys.modules.get("jog")
     if jog is not None:
-        jog.PARKIR = (px, py, pz, 0.0)
+        jog.PARKIR = (px, py, pz, pe)
     pick_place = sys.modules.get("pick_place")
     if pick_place is not None:
         pick_place.PARKIR_XY = (px, py)
         pick_place.Z_PARKIR = pz
+        pick_place.PARKIR_E = pe

@@ -20,6 +20,10 @@ RUTE
     preset sebelumnya saat loop) = lewat tinggi aman: naik dulu, pindah XY +
     rel di atas, baru turun. Lengan tidak menyeret benda atau menabrak belt
     saat berpindah antar-preset.
+  - Kalau naik tegak di tempat tidak bisa (lengan rendah dan dekat badan:
+    garis tegaknya lewat di dalam R_MIN), lengan pulang LURUS ke home dulu --
+    rute yang sama dengan tombol "Selesai, ke home" -- lalu naik-pindah-turun
+    dari home.
 
 BERKAS preset.json:  {"preset": [...], "sampah": [...]}
 Yang dihapus pindah ke "sampah" dulu, jadi salah klik masih bisa dipulihkan.
@@ -211,16 +215,33 @@ def tinggi_aman(asal, tujuan):
 def rencana_gerak(asal, tujuan, lewat_aman):
     """Titik-titik (x, y, z, e) dari asal ke tujuan, TANPA asal.
 
-    lewat_aman=False -> satu garis lurus. True -> naik, pindah, turun.
+    lewat_aman=False -> satu garis lurus. True -> naik, pindah, turun; kalau
+    rute itu ditolak periksa_rute, pulang lurus ke home dulu lalu naik,
+    pindah, turun dari home. Kalau dua-duanya ditolak, rute pertama yang
+    dikembalikan supaya alasan penolakannya yang dilaporkan.
     """
     asal, tujuan = tuple(asal), tuple(tujuan)
     if not lewat_aman:
-        rute = [tujuan]
-    else:
-        za = tinggi_aman(asal, tujuan)
-        rute = [(asal[0], asal[1], za, asal[3]),
-                (tujuan[0], tujuan[1], za, tujuan[3]),
-                tujuan]
+        return _buang_diam([tujuan], asal)
+    rute = _naik_pindah_turun(asal, tujuan)
+    if periksa_rute(asal, rute)[0]:
+        return rute
+    home = (rnv3.HOME_X, rnv3.HOME_Y, rnv3.HOME_Z, rnv3.HOME_E)
+    lewat_home = _buang_diam([home] + _naik_pindah_turun(home, tujuan), asal)
+    if periksa_rute(asal, lewat_home)[0]:
+        return lewat_home
+    return rute
+
+
+def _naik_pindah_turun(asal, tujuan):
+    za = tinggi_aman(asal, tujuan)
+    return _buang_diam([(asal[0], asal[1], za, asal[3]),
+                        (tujuan[0], tujuan[1], za, tujuan[3]),
+                        tujuan], asal)
+
+
+def _buang_diam(rute, asal):
+    """Buang titik yang sama dengan titik sebelumnya (ruas nol)."""
     hasil, sebelum = [], asal
     for t in rute:
         if any(abs(a - b) > 1e-6 for a, b in zip(t, sebelum)):

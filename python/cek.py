@@ -1870,11 +1870,11 @@ cek("RNV3_SETELAN=- : tes tidak membaca berkas milik pengguna",
 cek("jalur/jog/pick_place memakai angka BAWAAN selama tes",
     jalur.Z_BELT == setelan.BAWAAN["z_belt"]
     and jalur.PARKIR_XY == tuple(setelan.BAWAAN["parkir"][:2])
-    and jg.PARKIR[:3] == tuple(setelan.BAWAAN["parkir"])
+    and jg.PARKIR == tuple(setelan.BAWAAN["parkir"])
     and pp.Z_PARKIR == setelan.BAWAAN["parkir"][2]
     and jalur.JENIS["koin"]["taruh"] == tuple(setelan.BAWAAN["bak"]["koin"]))
 cek("BAWAAN sama dengan konstanta lama (perilaku tidak berubah sebelum diukur)",
-    setelan.BAWAAN["parkir"] == [0.0, 217.0, -40.0]
+    setelan.BAWAAN["parkir"] == [0.0, 217.0, -40.0, 0.0]
     and setelan.BAWAAN["z_belt"] == -80.0
     and setelan.BAWAAN["bak"]["tutup_botol"] == [-170.0, 215.0])
 
@@ -1885,7 +1885,7 @@ _isi = setelan.isi_dari_posisi(setelan.muat(_berkas_s), "parkir", 12.345, 230.0,
 setelan.simpan(_isi, _berkas_s)
 _balik = setelan.muat(_berkas_s)
 cek("simpan -> muat bolak-balik utuh",
-    _balik["parkir"] == [12.35, 230.0, -35.5]
+    _balik["parkir"] == [12.35, 230.0, -35.5, 0.0]
     and _balik["diukur"] == {"parkir": "2026-10-22 10:00"}
     and _balik["z_belt"] == setelan.BAWAAN["z_belt"], str(_balik))
 cek("simpan atomik: tidak ada berkas .tmp tertinggal",
@@ -1930,6 +1930,49 @@ cek("terapkan(BAWAAN) memulihkan semua modul",
     and jg.PARKIR == (0.0, 217.0, -40.0, 0.0) and pp.PARKIR_XY == (0.0, 217.0))
 cek("validasi_konfigurasi tetap bersih dengan BAWAAN",
     jalur.validasi_konfigurasi(cetak=False) == [])
+
+# ---- parkir ikut menyimpan posisi rel (28 Okt) ----
+_isi_e = setelan.isi_dari_posisi(setelan.BAWAAN, "parkir", 0.0, 164.1, 24.6,
+                                 waktu="2026-10-28 12:00", e=298.4)
+cek("isi_dari_posisi(parkir) ikut menyimpan E rel",
+    _isi_e["parkir"] == [0.0, 164.1, 24.6, 298.4], str(_isi_e["parkir"]))
+setelan.terapkan(_isi_e)
+cek("terapkan() memasang E parkir ke jalur/jog/pick_place",
+    jalur.PARKIR_E == 298.4 and pp.PARKIR_E == 298.4
+    and jg.PARKIR == (0.0, 164.1, 24.6, 298.4))
+cek("validasi_konfigurasi bersih dengan parkir di E=298.4",
+    jalur.validasi_konfigurasi(cetak=False) == [],
+    str(jalur.validasi_konfigurasi(cetak=False)))
+_bpe = simulasi.robot_palsu()
+with _hening(_io.StringIO()):
+    _bpe.home()
+    pp.parkir(_bpe)
+cek("pick_place.parkir() membawa rel ke E parkir",
+    (_bpe.x, _bpe.y, _bpe.z, _bpe.e) == (0.0, 164.1, 24.6, 298.4),
+    f"{_bpe.x},{_bpe.y},{_bpe.z},{_bpe.e}")
+_jpe = _jalur_uji()
+with _hening(_io.StringIO()):
+    _jpe.bot.move(e=298.4, f=20)          # mulai dari posisi parkir di rel
+    _n_awal = len(_jpe.bot.sim.log_perintah)
+    _st_e = _jpe.jalankan(siklus=2)
+_g0_e = [c for c in _jpe.bot.sim.log_perintah[_n_awal:] if c.startswith("G0")]
+_g0_rel = [c for c in _g0_e if " E" in c]
+cek("jalur: rel dibawa ke E=0 SEBELUM siklus pertama",
+    _g0_rel and "E0.00" in _g0_rel[0].split() and _g0_e.index(_g0_rel[0]) <= 1,
+    str(_g0_e[:3]))
+cek("jalur: siklus sukses lalu selesai() parkir di E parkir",
+    _st_e == {jalur.Hasil.SUKSES: 2} and round(_jpe.bot.e, 2) == 298.4
+    and (round(_jpe.bot.x, 2), round(_jpe.bot.y, 2), _jpe.bot.z) == (0.0, 164.1, 24.6),
+    f"{_st_e} X{_jpe.bot.x} Y{_jpe.bot.y} Z{_jpe.bot.z} E{_jpe.bot.e}")
+cek("parkir E di luar rel ditandai validasi",
+    (setelan.terapkan(setelan.rapikan({"parkir": [0.0, 217.0, -40.0, 400.0]})) or True)
+    and any("di luar rel" in m for m in jalur.validasi_konfigurasi(cetak=False)))
+try:
+    setelan.rapikan({"parkir": [0, 217, -40, 0, 1]})
+    cek("setelan parkir 5 angka ditolak", False)
+except ValueError:
+    cek("setelan parkir 5 angka ditolak", True)
+setelan.terapkan(setelan.BAWAAN)
 try:
     setelan.simpan(setelan.BAWAAN)
     cek("simpan tanpa berkas saat RNV3_SETELAN=- ditolak", False)
@@ -2093,12 +2136,13 @@ except aplikasi.AplikasiError:
 app.kirim("hapus_titik", {"semua": True})
 cek("hapus semua -> 0", app.titik == [])
 
-# matikan dengan konfirmasi: parkir dulu, baru M18
+# matikan dengan konfirmasi: pulang ke home dulu, baru M18
 app.kirim("matikan", {"dipegang": True})
 app.tunggu_selesai()
-cek("matikan: parkir di titik setelan, lalu motor dilepas",
-    app.bot.z == setelan.BAWAAN["parkir"][2] and app.bot.sim.steppers_on is False
-    and app.status()["perlu_homing"])
+cek("matikan: pulang ke home, lalu motor dilepas",
+    (app.bot.x, app.bot.y, app.bot.z, app.bot.e)
+    == (rnv3.HOME_X, rnv3.HOME_Y, rnv3.HOME_Z, rnv3.HOME_E)
+    and app.bot.sim.steppers_on is False and app.status()["perlu_homing"])
 
 # HTTP
 _srv = aplikasi.buat_server(app, 0)
@@ -2251,7 +2295,7 @@ _jalankan(ap, "ukur_reset")
 cek("reset: berkas setelan dihapus, semua kembali BAWAAN",
     not os.path.exists(ap.berkas_setelan) and ap.setelan == setelan.BAWAAN
     and jalur.Z_BELT == setelan.BAWAAN["z_belt"]
-    and ap.jog.parkir_titik == (*setelan.BAWAAN["parkir"], 0.0))
+    and ap.jog.parkir_titik == tuple(setelan.BAWAAN["parkir"]))
 
 # rekam
 try:
@@ -2383,6 +2427,199 @@ ap.kirim("preset_kosongkan_sampah")
 cek("kosongkan sampah", ap.preset["sampah"] == [])
 ap.tutup()
 setelan.terapkan(setelan.BAWAAN)
+
+# ---- rekam otomatis: jalur jog ikut terekam ----------------------------------
+# Kasus lapangan: ambil koin di Z rendah, taruh di Z rendah juga di tempat lain.
+# Rekam titik saja -> diputar lurus di Z rendah = koin terseret. Rekam otomatis
+# harus memutar ulang naik-geser-turun seperti yang dijog operator.
+ao = _app_preset()
+
+
+def _tap(p, sumbu, arah, kali=1):
+    for i in range(kali):
+        t = f"tap-{sumbu}-{arah}-{i}-{len(p.rekam or [])}"
+        p.kirim("jog_lepas", {"token": t})   # lepas duluan = tepat satu langkah
+        _jalankan(p, "jog", sumbu=sumbu, arah=arah, token=t)
+
+
+def _gerak_rekam(p):
+    return [(l["x"], l["y"], l["z"], l["e"]) for l in p.rekam if l["jenis"] == "gerak"]
+
+
+ao.kirim("setel_jog", {"i_step": 3})                  # 10 mm per tap
+ao.bot.move(x=_A[0], y=_A[1], z=_A[2], f=200)
+ao.kirim("rekam_mulai", {"otomatis": True})
+cek("rekam otomatis: posisi awal langsung tercatat",
+    _gerak_rekam(ao) == [_A] and ao.status()["rekam_otomatis"] is True)
+_jalankan(ao, "vakum", nyala=True)
+_tap(ao, "z", 1, 3)
+_tap(ao, "y", 1, 2)
+_tap(ao, "z", -1, 3)
+_jalankan(ao, "vakum", nyala=False)
+cek("rekam otomatis: tap beruntun di sumbu sama digabung jadi satu langkah",
+    [l["jenis"] for l in ao.rekam]
+    == ["gerak", "vakum", "gerak", "gerak", "gerak", "vakum"],
+    str([l["jenis"] for l in ao.rekam]))
+cek("rekam otomatis: jalur naik -> geser -> turun tersimpan apa adanya",
+    _gerak_rekam(ao) == [_A, (_A[0], _A[1], _A[2] + 30, 0.0),
+                         (_A[0], _A[1] + 20, _A[2] + 30, 0.0),
+                         (_A[0], _A[1] + 20, _A[2], 0.0)],
+    str(_gerak_rekam(ao)))
+
+# putar: lengan + vakum ON tidak boleh lurus di Z rendah
+ao.kirim("rekam_simpan", {"nama": "ambil naik taruh"})
+_id_o = ao.preset["preset"][0]["id"]
+_jalankan(ao, "selesai")
+ao.bot.sim.log_perintah.clear()
+_jalankan(ao, "preset_coba", id=_id_o)
+_lp = ao.bot.sim.log_perintah
+_i_on = next(i for i, c in enumerate(_lp) if c.upper().startswith("VACUM ON"))
+_i_off = next(i for i, c in enumerate(_lp) if c.upper().startswith("VACUM OFF"))
+_z_saat_vakum = [float(m.group(1)) for c in _lp[_i_on:_i_off]
+                 if c.upper().startswith("G0")
+                 for m in [_re.search(r"Z(-?[\d.]+)", c.upper())] if m]
+cek("putar ulang: selagi vakum ON lengan NAIK dulu, tidak menyeret di Z rendah",
+    _z_saat_vakum and max(_z_saat_vakum) >= _A[2] + 30 - 0.01,
+    str(_z_saat_vakum))
+
+# putar (rot) melengkung: digabung hanya selama tali busurnya masih menempel
+ao.kirim("rekam_mulai", {"otomatis": True})
+ao.kirim("setel_jog", {"i_step": 2})                  # 5 mm per tap
+_tap(ao, "rot", 1, 8)                                  # 40 mm busur
+_g = _gerak_rekam(ao)
+_rot_ok = all(aplikasi._busur_muat({"x": a[0], "y": a[1]}, {"x": b[0], "y": b[1]})
+              for a, b in zip(_g, _g[1:]))
+cek("rekam otomatis: putar panjang dipecah, tiap ruas lurusnya tetap di busur",
+    len(_g) >= 3 and _rot_ok, f"{len(_g)} titik, ok={_rot_ok}")
+
+# gerakan bukan-jog yang bertahap: tiap ruasnya ikut tercatat
+ao.kirim("rekam_batal")
+_jalankan(ao, "selesai")
+ao.kirim("rekam_mulai", {"otomatis": True})
+_jalankan(ao, "preset_ke_langkah", id=_id_o, nomor=1)  # dari home: pindah tinggi, turun
+_g = _gerak_rekam(ao)
+cek("rekam otomatis: 'Ke sini' tercatat per ruas (pindah di atas, lalu turun)",
+    _g[-2:] == [(_A[0], _A[1], rnv3.HOME_Z, 0.0), _A], str(_g))
+cek("rekam otomatis: move() dikembalikan setelah aksi", "move" not in vars(ao.bot))
+
+# rekam titik saja (centang dilepas): jog TIDAK tercatat
+ao.kirim("rekam_batal")
+ao.kirim("rekam_mulai", {"otomatis": False})
+_tap(ao, "z", 1, 2)
+cek("rekam titik saja: jog tidak menambah langkah", ao.rekam == [])
+ao.kirim("rekam_batal")
+
+# REGRESI lapangan 28 Okt: preset 'test' berakhir rendah dan dekat badan
+# (Y164 Z-80.7, rel 146.7). Naik tegak dari sana lewat di dalam R_MIN, jadi
+# loop "Terus" ditolak SEBELUM bergerak -- tampak seperti Jalan tidak merespons.
+_langkah_lap = [mod_preset.langkah_gerak(*t) for t in [
+    (0, 217, 138, 0), (0, 257.5, 138, 0), (0, 257.5, -23.7, 0),
+    (0, 164.32, -23.7, 0), (0, 164.32, -23.53, 0), (0, 164.32, -23.53, 146.7),
+    (0, 164.32, -80.73, 146.7)]]
+_, _p_lap = mod_preset.tambah(mod_preset.kosong(), "lapangan", _langkah_lap)
+_akhir_lap = (0.0, 164.32, -80.73, 146.7)
+_home = (rnv3.HOME_X, rnv3.HOME_Y, rnv3.HOME_Z, rnv3.HOME_E)
+cek("naik tegak dari akhir preset lapangan memang tidak bisa (R_MIN)",
+    not mod_preset.periksa_rute(_akhir_lap, mod_preset._naik_pindah_turun(
+        _akhir_lap, _home))[0])
+cek("rute masuk: naik tegak ditolak -> pulang lurus ke home dulu",
+    mod_preset.rencana_gerak(_akhir_lap, (0, 217, 138, 0), True)[0] == _home)
+cek("preset lapangan bisa diputar 'Terus' dari posisi akhirnya",
+    mod_preset.validasi_urutan([_p_lap], _akhir_lap, True)[0],
+    mod_preset.validasi_urutan([_p_lap], _akhir_lap, True)[1])
+ao._simpan_preset(mod_preset.tambah(ao.preset, "lapangan", _langkah_lap)[0])
+_id_lap = ao.preset["preset"][-1]["id"]
+ao.bot.move(x=0, y=164.32, z=-23.53, e=146.7, f=200)
+ao.bot.move(z=-80.73, f=200)
+_jalankan(ao, "preset_jalan", ids=[_id_lap], ulang=2, kecepatan=80.0)
+cek("preset lapangan: 2 putaran jalan sampai selesai di langkah terakhir",
+    (ao.bot.x, ao.bot.y, ao.bot.z, ao.bot.e) == _akhir_lap
+    and "preset selesai: 2 putaran" in _log(ao), _log(ao)[-200:])
+ao.tutup()
+setelan.terapkan(setelan.BAWAAN)
+
+
+# ===========================================================================
+print()
+print("=" * 68)
+print("24. server_kamera.py -- YOLO kelompok kamera lewat kontrak kita")
+print("=" * 68)
+
+import server_kamera
+
+cek("impor server_kamera tidak menarik cv2/ultralytics (tes jalan tanpa GPU/kamera)",
+    "cv2" not in sys.modules and "ultralytics" not in sys.modules)
+cek("LABEL_DIKENAL sama persis dengan kunci jalur.JENIS",
+    set(server_kamera.LABEL_DIKENAL) == set(jalur.JENIS),
+    f"{server_kamera.LABEL_DIKENAL} vs {list(jalur.JENIS)}")
+
+# Regresi: Deteksi.ke_dict() menyertakan x_mm=None; dulu dari_dict() menganggap
+# kuncinya ada lalu float(None) -> setiap deteksi piksel ditolak di SumberTCP.
+try:
+    _d_null = kontrak_kamera.Deteksi.dari_dict(
+        kontrak_kamera.Deteksi(u_px=300.0, v_px=200.0, label="koin").ke_dict())
+except kontrak_kamera.KameraError as _x:
+    _d_null = _x
+cek("dari_dict(): x_mm null + u_px/v_px terisi -> dibaca sebagai piksel",
+    isinstance(_d_null, kontrak_kamera.Deteksi)
+    and not _d_null.punya_mm and _d_null.u_px == 300.0, repr(_d_null))
+
+
+class _DetPalsu:
+    def __init__(self, class_name, center, confidence=0.9):
+        self.class_name, self.center, self.confidence = class_name, center, confidence
+
+
+class _KamPalsu:
+    def __init__(self, ok=True):
+        self.ok = ok
+
+    def read(self):
+        return (self.ok, "frame") if self.ok else (False, None)
+
+
+class _YoloPalsu:
+    def __init__(self, keluaran):
+        self.keluaran = keluaran
+        self.frame_diterima = []
+
+    def detect(self, frame, apply_smart_filter=None):
+        self.frame_diterima.append(frame)
+        return list(self.keluaran)
+
+
+def _lewat_tcp(kamera, yolo, kal=_kal):
+    """Satu deteksi lewat TCP sungguhan: server_kamera -> SumberTCP(kalibrasi)."""
+    sumber = server_kamera.SumberYOLO(kamera, yolo, cetak=lambda *_: None)
+    with kontrak_kamera.ServerKameraPalsu(sumber, port=0) as srv:
+        return kontrak_kamera.SumberTCP(port=srv.server_address[1],
+                                        kalibrasi=kal).deteksi()
+
+
+_yolo = _YoloPalsu([_DetPalsu("charger", (100, 100)),
+                    _DetPalsu("koin", (300, 200), 0.81),
+                    _DetPalsu("tutup_botol", (540, 400))])
+_hasil = _lewat_tcp(_KamPalsu(), _yolo)
+cek("frame kamera benar-benar sampai ke detektor", _yolo.frame_diterima == ["frame"])
+cek("charger disaring, koin & tutup_botol lolos",
+    [d.label for d in _hasil] == ["koin", "tutup_botol"], [d.label for d in _hasil])
+_want = _mm_asli(300.0, 200.0)
+cek("piksel dikonversi ke mm oleh homografi KITA di sisi orkestrator",
+    _hasil and abs(_hasil[0].x_mm - _want[0]) < 1e-6
+    and abs(_hasil[0].y_mm - _want[1]) < 1e-6, str(_hasil[:1]))
+cek("conf ikut terbawa", _hasil and abs(_hasil[0].conf - 0.81) < 1e-9)
+cek("--semua-label (label=None) meloloskan charger",
+    "charger" in [d.label for d in server_kamera.SumberYOLO(
+        _KamPalsu(), _yolo, label=None, cetak=lambda *_: None).deteksi()])
+cek("belt kosong -> daftar kosong, bukan error (aturan kontrak no. 2)",
+    _lewat_tcp(_KamPalsu(), _YoloPalsu([])) == [])
+try:
+    _lewat_tcp(_KamPalsu(ok=False), _YoloPalsu([]))
+    _kam_mati = "tidak melempar"
+except kontrak_kamera.KameraError as _x:
+    _kam_mati = str(_x)
+cek("kamera tanpa frame -> KameraError di orkestrator, bukan daftar kosong",
+    "tidak memberi frame" in _kam_mati, _kam_mati)
 
 
 print()

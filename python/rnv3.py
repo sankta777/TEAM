@@ -171,7 +171,11 @@ def check_reach(x, y, z, e=None):
 #     daripada yang diminta.
 #  2. Rentang putar base dibatasi mekanik, tapi asin() mengizinkan -90..+90.
 #
-# Nilai di bawah sengaja konservatif. Kalibrasi sendiri dengan tombol ";" di
+# Bawaannya SEMUA None = tak dibatasi (permintaan operator, 28 Okt 2026);
+# dulu y_min=100 dan rot_maks=75 sebagai tebakan konservatif. Yang tetap
+# berlaku: batas firmware (check_reach) dan larangan Y<=0 di check_fisik(),
+# karena di belakang badan kinematika firmware salah memetakan titik.
+# Batas x/y/z menyusul dari operator; bisa juga direkam dengan tombol ";" di
 # jog.py: jog pelan sampai hampir mentok, tekan ";", batasnya terekam.
 # ---------------------------------------------------------------------------
 import json
@@ -181,8 +185,8 @@ BERKAS_BATAS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "batas-fisik.json")
 
 BATAS_FISIK = {
-    "y_min": 100.0,        # lengan wajib tetap di DEPAN badan robot
-    "rot_maks": 75.0,      # derajat, rentang putar base kiri/kanan
+    "y_min": None,         # dulu 100.0
+    "rot_maks": None,      # derajat, rentang putar base kiri/kanan; dulu 75.0
     "x_min": None, "x_maks": None,     # diisi hasil kalibrasi (None = tak dibatasi)
     "y_maks": None,
     "z_min": None, "z_maks": None,
@@ -300,10 +304,9 @@ if not BATAS_TERUKUR:
     # warnings.filterwarnings() kalau memang disengaja.
     warnings.warn(
         f"batas fisik belum pernah diukur: '{os.path.basename(BERKAS_BATAS)}' "
-        f"tidak ada, jadi BATAS_FISIK memakai tebakan konservatif "
-        f"(y_min={BATAS_FISIK['y_min']:.0f}, "
-        f"rot_maks={BATAS_FISIK['rot_maks']:.0f}). Ukur di robot nyata lalu "
-        f"simpan_batas() supaya validasi memakai angka yang sebenarnya.",
+        f"tidak ada, jadi batas fisik TIDAK dibatasi -- hanya batas firmware "
+        f"dan larangan Y<=0 yang berlaku. Isi batas x/y/z lalu "
+        f"simpan_batas() supaya lengan tidak beradu dengan badannya sendiri.",
         RuntimeWarning, stacklevel=2)
 
 

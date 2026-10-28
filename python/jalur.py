@@ -104,6 +104,7 @@ Z_PARKIR = _S["parkir"][2]   # ketinggian SEBELUM robot dimatikan. Lengan
                          # jatuh karena gravitasi saat daya hilang — parkir
                          # rendah supaya tidak ada jarak jatuh.
 PARKIR_XY = tuple(_S["parkir"][:2])
+PARKIR_E = _S["parkir"][3]   # posisi rel saat parkir
                          # tempat lengan turun ke Z_PARKIR. Satu sumber dengan
                          # jog.PARKIR dan pick_place (setelan-robot.json). WAJIB titik
                          # yang di bawahnya KOSONG -- bukan di atas bak (botol
@@ -185,6 +186,9 @@ def validasi_konfigurasi(cetak=True):
     """
     masalah = []
     px, py = PARKIR_XY
+    if not 0.0 <= PARKIR_E <= rnv3.RAIL_LENGTH:
+        masalah.append(f"parkir E{PARKIR_E:.0f}: di luar rel "
+                       f"0..{rnv3.RAIL_LENGTH:.0f}")
     titik = [
         ("zona ambil kiri @aman",  -BELT_X_LEBAR, BELT_Y, Z_SAFE),
         ("zona ambil kanan @aman",  BELT_X_LEBAR, BELT_Y, Z_SAFE),
@@ -488,6 +492,14 @@ class Jalur:
         """
         n = 0
         try:
+            # Semua titik di sini diukur dengan rel di E=0. Parkir kini boleh
+            # di posisi rel lain, jadi bawa rel pulang dulu (lewat Z aman).
+            if abs(self.bot.e - rnv3.HOME_E) > 0.01:
+                self._kata(f"rel di E={self.bot.e:.1f}, dibawa ke "
+                           f"E={rnv3.HOME_E:.0f} dulu")
+                if self.bot.z < Z_SAFE:
+                    self.bot.move(z=Z_SAFE, f=F_SLOW)
+                self.bot.move(e=rnv3.HOME_E, f=F_SLOW)
             while siklus == 0 or n < siklus:
                 if self.stop_event.is_set():
                     self._kata("diminta berhenti")
@@ -531,6 +543,8 @@ class Jalur:
                 self._kata(f"parkir di X{px:.0f} Y{py:.0f} Z{Z_PARKIR:.0f}")
                 if self.bot.z < Z_SAFE:
                     self.bot.move(z=Z_SAFE, f=F_SLOW)   # naik dulu, baru geser
+                if abs(self.bot.e - PARKIR_E) > 0.01:
+                    self.bot.move(e=PARKIR_E, f=F_SLOW)
                 self.bot.goto_xy(px, py, f=F_FAST)
                 self.bot.move(z=Z_PARKIR, f=F_SLOW)
             else:

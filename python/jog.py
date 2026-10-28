@@ -84,7 +84,7 @@ NAMA_PROFIL = {PROFIL_KOSINUS: "kosinus", PROFIL_ARCTAN: "arctan",
 # dengan jalur.py dan pick_place.py). Bawaannya SENGAJA konservatif -- ruang
 # di bawah lengan belum diukur. Ukur di aplikasi (tab Ukur, "Parkir"). Shift+X
 # di sini hanya mengganti titik parkir untuk sesi jog yang sedang berjalan.
-PARKIR = (*setelan.muat()["parkir"], 0.0)       # X, Y, Z, E
+PARKIR = tuple(setelan.muat()["parkir"])        # X, Y, Z, E
 
 # True = setelah parkir, matikan motor (M18): stepper berhenti menarik arus
 # tahan dan kipas ikut mati (setStepperEnable() di firmware mematikan keduanya

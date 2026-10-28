@@ -68,6 +68,7 @@ Z_PARKIR = _PARKIR[2]  # ketinggian saat selesai, SEBELUM robot dimatikan.
                      # jatuh dari ketinggian itu. Dari setelan-robot.json --
                      # satu sumber dengan jog.PARKIR dan jalur.PARKIR_XY.
 PARKIR_XY = tuple(_PARKIR[:2])   # tempat lengan turun ke Z_PARKIR
+PARKIR_E = _PARKIR[3]            # posisi rel saat parkir
 
 MATIKAN_SAAT_SELESAI = False  # True = setelah parkir, kirim M18 (motor + kipas
                               # mati) dan lengan jadi loyo. Sengaja False, sama
@@ -270,7 +271,7 @@ def parkir(bot):
               "kalau mau lanjut)")
         return
     bot.move(z=Z_SAFE, f=F_FAST)
-    bot.move(e=rnv3.HOME_E, f=F_RAIL)
+    bot.move(e=PARKIR_E, f=F_RAIL)
     bot.move(x=PARKIR_XY[0], y=PARKIR_XY[1], f=F_FAST)
     bot.move(z=Z_PARKIR, f=F_SLOW)
     if MATIKAN_SAAT_SELESAI:

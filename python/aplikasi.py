@@ -69,7 +69,8 @@ F_REL = 40.0        # mm/s rel; sama dengan pick_place.F_RAIL (lebih cepat = ste
 
 # Ukuran yang memakai X/Y harus diambil dengan rel di E=0: X/Y dihitung dari
 # badan robot, dan badan ikut bergeser bersama rel.
-KUNCI_PERLU_REL_NOL = {"bak_koin", "bak_tutup_botol", "parkir"}
+# Parkir TIDAK termasuk: titik parkir menyimpan posisi rel-nya sendiri.
+KUNCI_PERLU_REL_NOL = {"bak_koin", "bak_tutup_botol"}
 TOLERANSI_REL = 0.5  # mm
 
 # Perintah yang dijalankan LANGSUNG di thread HTTP: tidak menyentuh port
@@ -146,7 +147,9 @@ class Pengendali:
             self.log.tulis(f"{galat}; daftar preset dimulai kosong (berkas lama "
                            f"tidak ditimpa sampai ada perubahan)", "peringatan")
         self.rekam = None            # list langkah selagi merekam, atau None
-        self.putar = None            # kemajuan preset yang sedang diputar
+        self.rekam_otomatis = False  # True = tiap gerakan lengan ikut tercatat
+        self._ruas_rekam = None      # ruas jog yang masih boleh diperpanjang
+        self.putar = None           # kemajuan preset yang sedang diputar
         self._status_preset = (None, None)
         self._jeda = threading.Event()
 
@@ -222,6 +225,7 @@ class Pengendali:
                           "rel_panjang": rnv3.RAIL_LENGTH},
             "log": self.log.sejak(sejak),
             "rekam": self.rekam,
+            "rekam_otomatis": self.rekam_otomatis,
             "preset": self._preset_dengan_status(),
             "sampah": [{"id": p["id"], "nama": p["nama"],
                         "dihapus": p.get("dihapus", ""),
@@ -257,6 +261,22 @@ class Pengendali:
     def _kerja(self):
         while True:
             aksi, data = self._antrean.get()
+            b = self.bot
+            sebelum = (b.x, b.y, b.z, b.e) if b is not None else None
+            # Rekam otomatis: gerakan selain jog (pulang, rel ke 0, pergi ke
+            # titik/langkah) bisa terdiri dari beberapa ruas -- naik, pindah,
+            # turun. Tiap ruas dicatat, bukan cuma ujungnya; kalau hanya
+            # ujungnya, putar ulang memotong lurus dan menyeret benda.
+            dibungkus = (aksi != "jog" and b is not None
+                         and self.rekam is not None and self.rekam_otomatis)
+            if dibungkus:
+                move_asli = b.move
+
+                def _move_tercatat(*a, **kw):
+                    hasil_move = move_asli(*a, **kw)
+                    self._rekam_gerak(None)
+                    return hasil_move
+                b.move = _move_tercatat
             try:
                 hasil = getattr(self, f"_aksi_{aksi}")(**data)
                 if hasil:
@@ -270,6 +290,15 @@ class Pengendali:
                 # tanpa penjelasan.
                 self.log.tulis(f"{type(e).__name__}: {e}", "galat")
             finally:
+                if dibungkus:
+                    del b.move           # kembali ke method kelas
+                # Jaring pengaman untuk gerakan yang tidak lewat move()
+                # (mis. homing). Dicatat sebelum sibuk dilepas supaya
+                # "Catat posisi" tidak menyalip.
+                b = self.bot
+                if (aksi != "jog" and b is not None and sebelum is not None
+                        and (b.x, b.y, b.z, b.e) != sebelum):
+                    self._rekam_gerak(None)
                 with self._kunci:
                     self.sibuk = None
                     self._tahan = None
@@ -341,6 +370,7 @@ class Pengendali:
         j = self.jog
         mulai = time.monotonic()
         if j.gerak(sumbu, arah, step=j.step, speed=j.speed):
+            self._rekam_gerak(sumbu)
             self._jeda_sim(j.step, j.speed)
         else:
             self.log.tulis(j.pesan, "peringatan")
@@ -361,6 +391,7 @@ class Pengendali:
             if not j.gerak(sumbu, arah, step=st, speed=sp):
                 self.log.tulis(j.pesan, "peringatan")
                 break
+            self._rekam_gerak(sumbu)
             self._jeda_sim(st, sp)
         # Jog yang berhasil tidak dicatat: posisinya sudah tampil terus, dan
         # satu sesi ukur bisa berisi ratusan jog.
@@ -470,18 +501,22 @@ class Pengendali:
         return "selesai: lengan di home, motor tetap terkunci"
 
     def _aksi_matikan(self, dipegang=False):
-        """Akhir hari: parkir rendah, lalu M18. Wajib konfirmasi dipegang."""
+        """Akhir hari: pulang ke home, lalu M18. Wajib konfirmasi dipegang.
+
+        Lengan berhenti tinggi (Z home), jadi saat motor lepas lengan jatuh
+        kalau tidak dipegang -- karena itu konfirmasi dipegang wajib.
+        """
         if not dipegang:
             raise AplikasiError("konfirmasi dulu bahwa lengan sedang dipegang")
         self._perlu_bot()
         if self.vakum:
             self._aksi_vakum(False)
-        if not self.jog.parkir():
-            raise AplikasiError(f"parkir gagal, motor TIDAK dimatikan: "
+        if not self.jog.pulang():
+            raise AplikasiError(f"pulang gagal, motor TIDAK dimatikan: "
                                 f"{self.jog.pesan}")
         self.bot.steppers(False)
         self.jog.motor_terkunci = False
-        return ("motor dimatikan setelah parkir. Saklar 12V aman dimatikan. "
+        return ("motor dimatikan di home. Saklar 12V aman dimatikan. "
                 "Mau gerak lagi: homing ulang")
 
     def _aksi_rilis_motor(self, dipegang=False):
@@ -505,14 +540,15 @@ class Pengendali:
                 f"rel di E={b.e:.1f}, bukan 0: posisi {_NAMA_UKUR[kunci]} akan "
                 f"meleset saat robot di E=0. Bawa rel ke 0 dulu")
         try:
-            baru = setelan.isi_dari_posisi(self.setelan, kunci, b.x, b.y, b.z)
+            baru = setelan.isi_dari_posisi(self.setelan, kunci, b.x, b.y, b.z,
+                                           e=b.e)
             berkas = setelan.simpan(baru, self.berkas_setelan)
         except (ValueError, RuntimeError, OSError) as e:
             raise AplikasiError(f"setelan tidak tersimpan: {e}") from None
         self.setelan = baru
         setelan.terapkan(baru)
         if kunci == "parkir":
-            self.jog.parkir_titik = (*baru["parkir"], 0.0)
+            self.jog.parkir_titik = tuple(baru["parkir"])
         self._validasi()
         pesan = f"{_NAMA_UKUR[kunci]} disimpan ke {os.path.basename(berkas)}"
         if self.masalah:
@@ -528,7 +564,7 @@ class Pengendali:
         self.setelan = setelan.muat(self.berkas_setelan)
         setelan.terapkan(self.setelan)
         if self.jog is not None:
-            self.jog.parkir_titik = (*self.setelan["parkir"], 0.0)
+            self.jog.parkir_titik = tuple(self.setelan["parkir"])
         self._validasi()
         return ("semua angka ukur kembali ke angka awal" if ada
                 else "angka ukur memang sudah angka awal")
@@ -597,14 +633,55 @@ class Pengendali:
         return "ok"
 
     # -- aksi: rekam preset ----------------------------------------------------
-    def _aksi_rekam_mulai(self):
+    def _aksi_rekam_mulai(self, otomatis=False):
         self._perlu_bot()
         if self.putar is not None:
             raise AplikasiError("preset sedang diputar")
         self.rekam = []
-        self.log.tulis("mulai merekam: jog lalu Catat posisi; vakum dan "
-                       "gripper tercatat otomatis", "ok")
+        self.rekam_otomatis = bool(otomatis)
+        self._ruas_rekam = None
+        if self.rekam_otomatis:
+            # Posisi awal ikut dicatat: ruas pertama diputar dari sini, bukan
+            # dari titik jog pertama.
+            self._rekam_gerak(None)
+            self.log.tulis("mulai merekam: semua gerakan lengan tercatat; vakum "
+                           "dan gripper juga", "ok")
+        else:
+            self.log.tulis("mulai merekam: jog lalu Catat posisi; vakum dan "
+                           "gripper tercatat otomatis", "ok")
         return "ok"
+
+    def _rekam_gerak(self, sumbu):
+        """Rekam otomatis: catat posisi lengan sekarang sebagai langkah gerak.
+
+        Jog beruntun di sumbu yang sama digabung jadi SATU ruas lurus (hanya
+        titik ujungnya yang disimpan) -- satu tahanan tombol bisa berisi
+        puluhan potongan kecil, dan kelewatan lalu mundur di sumbu yang sama
+        tetap satu garis. Jog putar (rot) jalannya melengkung, jadi ruasnya
+        dipotong begitu tali busurnya melendut lebih dari jog.LENDUT_MAKS;
+        kalau tidak, putar ulang akan memotong lurus lewat dalam busur.
+
+        sumbu=None -> titik berdiri sendiri, tidak pernah digabung.
+        """
+        r = self.rekam              # salinan lokal: Simpan/Batal bisa masuk dari thread HTTP
+        if r is None or not self.rekam_otomatis:
+            return
+        b = self.bot
+        baru = mod_preset.langkah_gerak(b.x, b.y, b.z, b.e)
+        gerak = [l for l in r if l["jenis"] == "gerak"]
+        if gerak and gerak[-1] == baru:
+            return
+        ruas = self._ruas_rekam
+        if (sumbu is not None and ruas is not None and ruas["sumbu"] == sumbu
+                and r and r[-1] is ruas["langkah"]
+                and (sumbu != "rot" or _busur_muat(ruas["awal"], baru))):
+            r[-1] = baru
+            ruas["langkah"] = baru
+            return
+        awal = gerak[-1] if gerak else baru
+        r.append(baru)
+        self._ruas_rekam = ({"sumbu": sumbu, "langkah": baru, "awal": awal}
+                            if sumbu is not None else None)
 
     def _perlu_rekam(self):
         if self.rekam is None:
@@ -920,6 +997,16 @@ _NAMA_UKUR = {
     "z_belt": "Z belt", "z_bak": "Z bak", "bak_koin": "bak koin",
     "bak_tutup_botol": "bak tutup botol", "parkir": "titik parkir",
 }
+
+
+def _busur_muat(awal, akhir):
+    """True kalau putar dari awal ke akhir masih boleh diputar ulang sebagai
+    satu garis lurus: lendut tali busurnya <= jog.LENDUT_MAKS."""
+    r = math.hypot(awal["x"], awal["y"])
+    sudut = abs(math.atan2(akhir["x"], akhir["y"])
+                - math.atan2(awal["x"], awal["y"]))
+    sudut = min(sudut, 2 * math.pi - sudut)
+    return r * sudut <= mod_jog.busur_maks(awal["x"], awal["y"]) + 1e-6
 
 
 def _buat_robot(port, sim):
