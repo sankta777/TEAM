@@ -1,0 +1,52 @@
+{
+  "status": "WAITING_STATIONARY",
+  "message": "Menunggu inersia reda (0.6s/0.6s)...",
+  "timestamp": 1793172164.314152,
+  "waktu_baca": "2026-10-28 15:22:44",
+  "target": null,
+  "total_objek": 2,
+  "daftar_objek": [
+    {
+      "class_name": "koin",
+      "label": "Koin",
+      "confidence": 0.961,
+      "pixel_center": {
+        "u": 900,
+        "v": 228
+      },
+      "robot_mm": {
+        "x": -91.0,
+        "y": 153.8,
+        "z": 2.0
+      },
+      "drop_mm": {
+        "x": -150.0,
+        "y": 100.0,
+        "z": 45.0
+      },
+      "track_id": 436,
+      "catatan": ""
+    },
+    {
+      "class_name": "koin",
+      "label": "Koin",
+      "confidence": 0.96,
+      "pixel_center": {
+        "u": 755,
+        "v": 224
+      },
+      "robot_mm": {
+        "x": -40.25,
+        "y": 152.4,
+        "z": 2.0
+      },
+      "drop_mm": {
+        "x": -150.0,
+        "y": 100.0,
+        "z": 45.0
+      },
+      "track_id": 435,
+      "catatan": ""
+    }
+  ]
+}
