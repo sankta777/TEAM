@@ -42,13 +42,18 @@ import json
 import math
 import os
 import queue
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import webbrowser
 
 import jalur
 import jog as mod_jog
+import kalibrasi as mod_kalibrasi
+import kontrak_kamera
+import konveyor as mod_konveyor
 import preset as mod_preset
 import rnv3
 import setelan
@@ -67,6 +72,13 @@ JEDA_TAP = 0.30     # s pertama setelah ditekan = "tekan sekali" (presisi)
 F_PERGI = 40.0      # mm/s saat pergi ke titik tersimpan
 F_REL = 40.0        # mm/s rel; sama dengan pick_place.F_RAIL (lebih cepat = step hilang)
 
+# Tab Sortir. Kamera konveyor di laptop ini nomor 1 (nomor 0 = webcam laptop);
+# ganti lewat --kamera kalau dipasang di laptop lain.
+BERKAS_KALIBRASI = os.path.join(FOLDER, "kalibrasi.json")
+KAMERA_SUMBER = "1"
+BATAS_NYALA_KAMERA = 120.0   # s; memuat YOLO pertama kali bisa ~20-60 s
+LOG_SERVER_KAMERA = os.path.join(tempfile.gettempdir(), "rnv3-server-kamera.log")
+
 # Ukuran yang memakai X/Y harus diambil dengan rel di E=0: X/Y dihitung dari
 # badan robot, dan badan ikut bergeser bersama rel.
 # Parkir TIDAK termasuk: titik parkir menyimpan posisi rel-nya sendiri.
@@ -82,7 +94,9 @@ LANGSUNG = {"berhenti", "jog_detak", "jog_lepas", "setel_jog", "tandai",
             "rekam_simpan", "rekam_batal", "preset_hapus", "preset_pulihkan",
             "preset_kosongkan_sampah",
             # kendali putar harus bisa masuk SELAGI preset berjalan
-            "preset_jeda", "preset_lanjut", "preset_berhenti"}
+            "preset_jeda", "preset_lanjut", "preset_berhenti",
+            # ...dan berhenti sortir SELAGI sortir berjalan
+            "sortir_berhenti"}
 
 SUMBU_JOG = {"rot", "y", "z", "e"}
 
@@ -116,6 +130,7 @@ class Log:
             return [b for b in self._isi if b["id"] > id_terakhir]
 
 
+
 class Pengendali:
     """Pemilik tunggal robot. Lihat docstring modul untuk aturan thread.
 
@@ -125,8 +140,16 @@ class Pengendali:
 
     def __init__(self, buat_robot=None, berkas_setelan=None,
                  berkas_titik=BERKAS_TITIK, jeda_sim=True,
-                 berkas_preset=BERKAS_PRESET):
+                 berkas_preset=BERKAS_PRESET, buat_kamera=None,
+                 kamera_sumber=KAMERA_SUMBER):
         self.buat_robot = buat_robot or _buat_robot
+        # buat_kamera() -> SumberDeteksi dalam mm. Disuntikkan oleh pengujian;
+        # bawaannya server_kamera.py + kalibrasi.json (lihat _kamera_siap).
+        self.buat_kamera = buat_kamera
+        self.kamera_sumber = kamera_sumber
+        self.sortir = None           # jalur.Jalur selagi tab Sortir berjalan
+        self.sortir_terakhir = None  # snapshot setelah berhenti (hitungan tetap tampil)
+        self._proses_kamera = None   # server_kamera.py yang kita nyalakan sendiri
         self.berkas_setelan = berkas_setelan
         self.berkas_titik = berkas_titik
         self.berkas_preset = berkas_preset
@@ -232,6 +255,7 @@ class Pengendali:
                         "jumlah": len(p["langkah"])} for p in self.preset["sampah"]],
             "putar": self.putar,
             "kecepatan_preset": list(KECEPATAN_PRESET),
+            "sortir": self._status_sortir(),
         }
         if j is not None:
             s["jog"] = {
@@ -248,6 +272,8 @@ class Pengendali:
     def tutup(self):
         """Lepas port. Motor TIDAK dimatikan -- lengan tetap terkunci."""
         self._aksi_berhenti()
+        if self._proses_kamera is not None and self._proses_kamera.poll() is None:
+            self._proses_kamera.terminate()
         if self.bot is not None:
             try:
                 if self.vakum:
@@ -429,6 +455,8 @@ class Pengendali:
     def _aksi_berhenti(self):
         self._henti.set()
         self._jeda.clear()           # preset yang sedang dijeda harus bangun untuk berhenti
+        if self.sortir is not None:
+            self.sortir.minta_berhenti()
         with self._kunci:
             self._tahan = None
         dibuang = 0
@@ -913,6 +941,111 @@ class Pengendali:
         except RNV3Error:
             pass
 
+    # -- aksi: sortir ----------------------------------------------------------
+    def _aksi_sortir_mulai(self):
+        """START: kamera mengawasi belt, robot mengambil sendiri benda yang diam.
+
+        Jalan di pekerja sampai Berhenti, jadi selama itu jog/Ukur/preset
+        ditolak ("robot sedang menyortir") -- dua pemberi perintah gerak
+        tidak boleh berebut lengan.
+        """
+        self._perlu_bot()
+        if self.rekam is not None:
+            raise AplikasiError("selesaikan atau batalkan rekaman dulu")
+        masalah = jalur.validasi_konfigurasi(cetak=False)
+        if masalah:
+            raise AplikasiError(f"{len(masalah)} titik di konfigurasi tidak "
+                                f"terjangkau -- betulkan di tab Ukur dulu")
+        kamera = self._kamera_siap()
+        if self._henti.is_set():
+            return "sortir dibatalkan sebelum mulai"
+        belt = mod_konveyor.KonveyorKamera(
+            kamera, tunggu_selamanya=True,
+            saring=lambda d: d.terjangkau(jalur.z_ambil(d.label))[0])
+        j = jalur.Jalur(self.bot, kamera, belt)
+        belt.berhenti_event = j.stop_event
+        # Cetakan jalur/konveyor langsung ke panel log SELAGI berjalan --
+        # sortir bisa jalan berjam-jam. Lewat _kata, bukan redirect_stdout:
+        # redirect itu mengganti sys.stdout seluruh proses, jadi cetakan
+        # thread lain ikut tersedot.
+        j._kata = belt._kata = lambda msg: self.log.tulis(msg)
+        self.sortir = j
+        try:
+            belt.periksa()
+            self._vakum_mati_diam()
+            if self.bot.z < jalur.Z_SAFE:
+                self.bot.move(z=jalur.Z_SAFE, f=jalur.F_SLOW)
+            j.jalankan(0)           # sampai minta_berhenti(); parkir di akhir
+        finally:
+            self.sortir_terakhir = j.snapshot()
+            self.sortir = None
+            # Jalur menyalakan/mematikan vakum langsung lewat bot; selesai()
+            # selalu mematikannya.
+            self.vakum = False
+            if self.jog:
+                self.jog.vakum = False
+        h = j.hitungan
+        return ("sortir berhenti: " + ", ".join(f"{k}={v}" for k, v in h.items())
+                + ". Lengan parkir, motor tetap terkunci")
+
+    def _aksi_sortir_berhenti(self):
+        if self.sortir is None and self.sibuk != _LABEL["sortir_mulai"]:
+            raise AplikasiError("sortir tidak sedang jalan")
+        self._henti.set()            # kalau masih menyalakan kamera
+        if self.sortir is not None:
+            self.sortir.minta_berhenti()
+        self.log.tulis("berhenti diminta: gerakan yang sedang jalan "
+                       "diselesaikan, lalu parkir", "peringatan")
+        return "ok"
+
+    def _kamera_siap(self):
+        """SumberDeteksi dalam mm; nyalakan server_kamera.py kalau belum jalan."""
+        if self.buat_kamera is not None:
+            return self.buat_kamera()
+        if not os.path.isfile(BERKAS_KALIBRASI):
+            raise AplikasiError("kalibrasi.json belum ada -- kalibrasi kamera "
+                                "dulu (python kalibrasi.py --sesi --kamera 1)")
+        kamera = kontrak_kamera.SumberTCP(
+            kalibrasi=mod_kalibrasi.Kalibrasi.muat(BERKAS_KALIBRASI))
+        if kamera.ping():
+            return kamera
+        if self._proses_kamera is None or self._proses_kamera.poll() is not None:
+            self.log.tulis(f"menyalakan server kamera (kamera {self.kamera_sumber}) "
+                           f"-- memuat YOLO, bisa sampai satu menit")
+            with open(LOG_SERVER_KAMERA, "w", encoding="utf-8") as keluaran:
+                self._proses_kamera = subprocess.Popen(
+                    [sys.executable, "-u", os.path.join(FOLDER, "server_kamera.py"),
+                     "--sumber", str(self.kamera_sumber)],
+                    cwd=FOLDER, stdout=keluaran, stderr=subprocess.STDOUT)
+        akhir = time.monotonic() + BATAS_NYALA_KAMERA
+        while time.monotonic() < akhir and not self._henti.is_set():
+            if kamera.ping():
+                self.log.tulis("server kamera siap", "ok")
+                return kamera
+            if self._proses_kamera.poll() is not None:
+                raise AplikasiError("server kamera mati saat menyala: "
+                                    + _ekor_berkas(LOG_SERVER_KAMERA))
+            time.sleep(1.0)
+        if self._henti.is_set():
+            raise AplikasiError("dibatalkan saat menyalakan kamera")
+        raise AplikasiError(f"server kamera belum menjawab setelah "
+                            f"{BATAS_NYALA_KAMERA:.0f} s: "
+                            + _ekor_berkas(LOG_SERVER_KAMERA))
+
+    def _status_sortir(self):
+        j = self.sortir
+        if j is not None:
+            s = j.snapshot()
+        elif self.sortir_terakhir is not None:
+            s = dict(self.sortir_terakhir)
+        else:
+            s = {"state": "mati", "hitungan": {k: 0 for k in jalur.JENIS},
+                 "benda_terakhir": None, "hasil_terakhir": None}
+        s["aktif"] = j is not None
+        s["menyalakan"] = j is None and self.sibuk == _LABEL["sortir_mulai"]
+        s["berjalan"] = j is not None and not j.stop_event.is_set()
+        return s
+
     # -- bantu -----------------------------------------------------------------
     def _simpan_preset(self, baru):
         try:
@@ -991,7 +1124,18 @@ _LABEL = {
     "ukur_reset": "mereset setelan", "rel_nol": "membawa rel ke 0",
     "preset_jalan": "memutar preset", "preset_coba": "mencoba preset",
     "preset_ke_langkah": "pergi ke langkah",
+    "sortir_mulai": "menyortir",
 }
+
+
+def _ekor_berkas(path, baris=6):
+    """Beberapa baris terakhir berkas log, untuk pesan galat."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return " | ".join(l.strip() for l in f.read().splitlines()[-baris:]
+                              if l.strip()) or "(log kosong)"
+    except OSError:
+        return "(log tidak terbaca)"
 
 _NAMA_UKUR = {
     "z_belt": "Z belt", "z_bak": "Z bak", "bak_koin": "bak koin",
@@ -1113,9 +1257,12 @@ def main(argv=None):
                     help=f"port HTTP lokal (bawaan {PORT_WEB})")
     ap.add_argument("--tanpa-browser", action="store_true",
                     help="jangan buka browser otomatis")
+    ap.add_argument("--kamera", default=KAMERA_SUMBER,
+                    help=f"nomor kamera konveyor untuk tab Sortir (bawaan "
+                         f"{KAMERA_SUMBER}; 0 biasanya webcam laptop)")
     a = ap.parse_args(argv)
 
-    p = Pengendali()
+    p = Pengendali(kamera_sumber=a.kamera)
     if a.sim:
         p.kirim("sambung", {"sim": True})
     try:

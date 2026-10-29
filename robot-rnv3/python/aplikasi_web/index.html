@@ -17,7 +17,7 @@
     <button role="tab" data-tab="kontrol" aria-selected="true">Kontrol</button>
     <button role="tab" data-tab="ukur" aria-selected="false">Ukur</button>
     <button role="tab" data-tab="preset" aria-selected="false">Preset</button>
-    <button role="tab" disabled title="Setelah kamera dan ESP32 siap">Sortir</button>
+    <button role="tab" data-tab="sortir" aria-selected="false">Sortir</button>
   </nav>
   <div class="aksi-atas">
     <button id="tombol-panduan" class="ghost" title="Panduan (tombol ?)">? Panduan</button>
@@ -268,6 +268,40 @@
         </div>
         <p id="putar-kemajuan" class="kemajuan" aria-live="polite"></p>
         <p id="putar-galat" class="masalah" role="alert" hidden></p>
+      </section>
+    </section>
+
+    <!-- TAB SORTIR: kamera menggantikan sensor, robot mengambil sendiri -->
+    <section id="tab-sortir" class="isi-tab" hidden>
+      <section class="panel sortir">
+        <h2>Sortir otomatis</h2>
+        <div class="sortir-kendali">
+          <button id="sortir-mulai" class="utama">START</button>
+          <button id="sortir-berhenti" class="bahaya">Berhenti</button>
+          <p id="sortir-keadaan" class="sortir-keadaan" aria-live="polite">Belum jalan</p>
+        </div>
+        <p id="sortir-syarat" class="bantu" hidden></p>
+        <dl class="posisi sortir-hitung" aria-label="Benda tersortir">
+          <div><dt>Koin</dt><dd id="hitung-koin">0</dd></div>
+          <div><dt>Tutup botol</dt><dd id="hitung-tutup_botol">0</dd></div>
+        </dl>
+        <p id="sortir-terakhir" class="bantu"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Cara pakai</h2>
+        <ol class="sortir-cara">
+          <li>Tekan START. Kamera mulai mengawasi belt.</li>
+          <li>Taruh koin atau tutup botol di dalam kotak ROI, lalu tarik tangan.</li>
+          <li>Robot mengambil setelah bendanya diam sekitar 1 detik, lalu menaruhnya di bak sesuai jenis.</li>
+          <li>Berhenti: gerakan yang sedang jalan diselesaikan, lalu lengan parkir.</li>
+        </ol>
+        <p class="bantu">Robot tidak mengenali tangan. Jangan memegang benda di belt saat lengan turun. Charger dan benda di luar jangkauan diabaikan.</p>
+      </section>
+
+      <section class="panel log-wadah">
+        <h2>Catatan</h2>
+        <ol id="log-sortir" class="log" aria-live="polite"></ol>
       </section>
     </section>
   </main>

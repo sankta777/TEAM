@@ -2760,6 +2760,147 @@ cek("kamera tanpa frame -> KameraError di orkestrator, bukan daftar kosong",
     "tidak memberi frame" in _kam_mati, _kam_mati)
 
 
+# ===========================================================================
+print()
+print("=" * 68)
+print("25. tab Sortir -- kamera sebagai sensor, START/Berhenti di aplikasi")
+print("=" * 68)
+
+
+class _KamUrut(kontrak_kamera.SumberDeteksi):
+    """Kamera palsu: tiap deteksi() mengambil isi berikutnya dari `urutan`,
+    lalu terus mengulang isi terakhir."""
+
+    def __init__(self, urutan):
+        self.urutan = list(urutan)
+        self.diminta = 0
+
+    def deteksi(self):
+        self.diminta += 1
+        isi = self.urutan.pop(0) if len(self.urutan) > 1 else self.urutan[0]
+        return [kontrak_kamera.Deteksi(x_mm=x, y_mm=y, label=l, conf=0.9)
+                for l, x, y in isi]
+
+
+def _belt_kam(urutan, **kw):
+    kam = _KamUrut(urutan)
+    kw.setdefault("tidur", lambda _d: None)
+    return konveyor.KonveyorKamera(kam, verbose=False, **kw), kam
+
+
+_KOIN = ("koin", -150.0, 215.0)
+_belt_k, _kam_k = _belt_kam([[_KOIN]] * 3)
+cek("KonveyorKamera: benda diam 3 foto berturut-turut -> benda datang",
+    _belt_k.maju_sampai_benda(timeout=5) is True and _kam_k.diminta == 3,
+    f"diminta {_kam_k.diminta}")
+
+# Tangan masih menggeser benda: posisi berubah >3 mm tiap foto -> belum boleh.
+_geser = [[("koin", -150.0 + 10 * i, 215.0)] for i in range(5)]
+_belt_k, _kam_k = _belt_kam(_geser + [[("koin", -100.0, 215.0)]] * 3)
+_belt_k.maju_sampai_benda(timeout=5)
+cek("KonveyorKamera: benda yang masih bergerak TIDAK memicu lengan",
+    _kam_k.diminta >= 7, f"terpicu di foto ke-{_kam_k.diminta}")
+
+_belt_k, _kam_k = _belt_kam([[("koin", -150.2, 215.0)], [("koin", -148.9, 214.1)],
+                             [("koin", -150.0, 216.0)]])
+cek("KonveyorKamera: goyang kecil < 3 mm (noise YOLO) tetap dianggap diam",
+    _belt_k.maju_sampai_benda(timeout=5) is True and _kam_k.diminta == 3)
+
+_belt_k, _kam_k = _belt_kam([[("koin", 0.0, 400.0)]], saring=lambda d: d.y_mm < 300,
+                            jeda=0.01, tidur=_waktu.sleep)
+cek("KonveyorKamera: benda di luar saringan tidak memicu (timeout -> False)",
+    _belt_k.maju_sampai_benda(timeout=0.2) is False)
+
+import threading as _threading
+_stop_k = _threading.Event()
+_stop_k.set()
+_belt_k, _ = _belt_kam([[]], berhenti=_stop_k, tunggu_selamanya=True)
+cek("KonveyorKamera: Berhenti memutus penantian selamanya",
+    _belt_k.maju_sampai_benda(timeout=0.1) is False)
+
+
+def _app_sortir(kamera):
+    d = _tempfile.mkdtemp(prefix="cek-app-sortir-")
+    p = aplikasi.Pengendali(
+        buat_robot=lambda port, sim: simulasi.robot_palsu(),
+        berkas_setelan=os.path.join(d, "setelan.json"),
+        berkas_titik=os.path.join(d, "titik.json"),
+        berkas_preset=os.path.join(d, "preset.json"), jeda_sim=False,
+        buat_kamera=lambda: kamera)
+    return p
+
+
+_ap_s = _app_sortir(_KamUrut([[_KOIN]]))
+_ap_s.kirim("sortir_mulai")
+_ap_s.tunggu_selesai()
+cek("sortir sebelum tersambung/homing ditolak",
+    "belum tersambung" in _log(_ap_s) and not _ap_s.status()["sortir"]["aktif"])
+
+_ap_s.kirim("sambung", {"sim": True})
+_ap_s.tunggu_selesai()
+_ap_s.kirim("homing")
+_ap_s.tunggu_selesai()
+_masalah_s = jalur.validasi_konfigurasi(cetak=False)
+_ap_s.kirim("sortir_mulai")
+_akhir = _waktu.monotonic() + 20
+while _waktu.monotonic() < _akhir and \
+        _ap_s.status()["sortir"]["hitungan"].get("koin", 0) < 1:
+    _waktu.sleep(0.02)
+_st_s = _ap_s.status()
+cek("sortir: koin yang dilihat kamera diambil tanpa Enter",
+    _st_s["sortir"]["hitungan"].get("koin", 0) >= 1 and _st_s["sortir"]["aktif"],
+    f"{_st_s['sortir']} | masalah konfigurasi: {_masalah_s} | {_log(_ap_s)[-400:]}")
+try:
+    _ap_s.kirim("jog", {"sumbu": "y", "arah": 1, "token": "s"})
+    _jog_s = "diterima"
+except aplikasi.AplikasiError as _x:
+    _jog_s = str(_x)
+cek("selama sortir, jog ditolak (satu pemberi perintah gerak)",
+    "menyortir" in _jog_s, _jog_s)
+cek("log jalur muncul di panel SELAGI sortir jalan",
+    "[mengambil]" in _log(_ap_s) or "ambil koin" in _log(_ap_s))
+
+_ap_s.kirim("sortir_berhenti")
+cek("Berhenti: pekerja selesai dalam batas waktu", _ap_s.tunggu_selesai(30))
+_st_s = _ap_s.status()
+_cmd_s = list(_ap_s.bot.sim.log_perintah)
+cek("Berhenti: sortir mati, hitungan tetap tampil",
+    not _st_s["sortir"]["aktif"] and _st_s["sortir"]["hitungan"]["koin"] >= 1)
+cek("Berhenti: vakum OFF terakhir & lengan parkir rendah",
+    _cmd_s[len(_cmd_s) - 1 - _cmd_s[::-1].index("VACUM OFF")] == "VACUM OFF"
+    and not _st_s["vakum"] and abs(_ap_s.bot.z - jalur.Z_PARKIR) < 0.01,
+    f"z={_ap_s.bot.z}")
+cek("tidak ada perintah belt (LG) terkirim di mode kamera",
+    not any(c.startswith("LG") for c in _cmd_s))
+try:
+    _ap_s.kirim("sortir_berhenti")
+    _dua = "diterima"
+except aplikasi.AplikasiError as _x:
+    _dua = str(_x)
+cek("Berhenti saat sortir tidak jalan -> ditolak dengan alasan",
+    "tidak sedang jalan" in _dua, _dua)
+_ap_s.kirim("jog", {"sumbu": "y", "arah": 1, "token": "s2"})
+_ap_s.kirim("jog_lepas", {"token": "s2"})
+cek("setelah sortir berhenti, jog bisa lagi", _ap_s.tunggu_selesai(10)
+    and "menyortir" not in _log(_ap_s).split("sortir berhenti")[-1])
+
+_ap_s2 = _app_sortir(_KamUrut([[]]))
+_ap_s2.kirim("sambung", {"sim": True})
+_ap_s2.tunggu_selesai()
+_ap_s2.kirim("homing")
+_ap_s2.tunggu_selesai()
+_n_s2 = len(_ap_s2.bot.sim.log_perintah)
+_ap_s2.kirim("sortir_mulai")
+_waktu.sleep(1.5)
+_cmd_s2 = _ap_s2.bot.sim.log_perintah[_n_s2:]
+cek("belt kosong: lengan diam menunggu, tidak ada vakum",
+    not any(c.startswith("VACUM ON") for c in _cmd_s2)
+    and _ap_s2.status()["sortir"]["aktif"], str(_cmd_s2))
+_ap_s2.kirim("berhenti")          # tombol Berhenti merah di pojok juga menghentikan sortir
+cek("tombol Berhenti umum juga menghentikan sortir", _ap_s2.tunggu_selesai(30)
+    and not _ap_s2.status()["sortir"]["aktif"])
+
+
 print()
 print("=" * 68)
 print(f"HASIL: {lulus} lulus, {gagal} gagal")

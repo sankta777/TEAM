@@ -216,16 +216,19 @@ const CEK_HOMING = [
 // pra-terbang) terbaca urut. Gulir otomatis hanya kalau operator sedang di
 // dasar log -- kalau sedang membaca ke atas, jangan direbut.
 function tambahLog(baris) {
-  const ol = $("#log");
-  const diDasar = ol.scrollHeight - ol.scrollTop - ol.clientHeight < 24;
-  const li = document.createElement("li");
-  li.className = baris.jenis || "info";
-  const t = document.createElement("time");
-  t.textContent = baris.t || new Date().toTimeString().slice(0, 8);
-  li.append(t, baris.teks);
-  ol.append(li);
-  while (ol.children.length > 250) ol.firstChild.remove();
-  if (diDasar) ol.scrollTop = ol.scrollHeight;
+  // Tab Sortir punya salinan log sendiri: operator menonton tab itu selama
+  // sortir berjalan, bukan tab Kontrol.
+  for (const ol of [$("#log"), $("#log-sortir")]) {
+    const diDasar = ol.scrollHeight - ol.scrollTop - ol.clientHeight < 24;
+    const li = document.createElement("li");
+    li.className = baris.jenis || "info";
+    const t = document.createElement("time");
+    t.textContent = baris.t || new Date().toTimeString().slice(0, 8);
+    li.append(t, baris.teks);
+    ol.append(li);
+    while (ol.children.length > 250) ol.firstChild.remove();
+    if (diDasar) ol.scrollTop = ol.scrollHeight;
+  }
   if (baris.jenis === "galat" && galatPutarDitunggu) {
     const p = $("#putar-galat");
     p.textContent = baris.teks;
@@ -329,6 +332,56 @@ function gambar() {
   if (S.tersambung && !S.perlu_homing) gambarPeta();
   gambarUkur();
   gambarPreset();
+  gambarSortir();
+}
+
+// state jalur.py -> [teks untuk operator, kelas warna]
+const KEADAAN_SORTIR = {
+  "menunggu benda": ["Mengawasi belt, menunggu benda diam", "jalan"],
+  "memotret": ["Memotret", "jalan"],
+  "mengambil": ["Mengambil benda", "jalan"],
+  "menaruh": ["Menaruh di bak", "jalan"],
+  "selesai siklus": ["Mengawasi belt", "jalan"],
+  "melewatkan": ["Benda tidak bisa diambil, singkirkan dari belt", "waspada"],
+  "merapikan": ["Lengan parkir", "waspada"],
+  "berhenti": ["Berhenti", ""],
+  "robot error": ["Robot error, lihat catatan", "galat"],
+  "mati": ["Belum jalan", ""],
+};
+
+function gambarSortir() {
+  const so = S.sortir || {};
+  const jalan = so.aktif || so.menyalakan;
+  let [teks, kelas] = KEADAAN_SORTIR[so.state] || [so.state || "Belum jalan", ""];
+  if (so.menyalakan) [teks, kelas] = ["Menyalakan kamera, memuat YOLO", "jalan"];
+  else if (so.aktif && !so.berjalan) [teks, kelas] = ["Menghentikan, menyelesaikan gerakan", "waspada"];
+  setStatus($("#sortir-keadaan"), teks, "sortir-keadaan " + kelas);
+
+  let syarat = "";
+  if (!S.tersambung) syarat = "Sambungkan robot dulu di tab Kontrol.";
+  else if (S.perlu_homing || !S.posisi_dipercaya) syarat = "Homing dulu di tab Kontrol.";
+  else if (S.masalah.length) syarat = "Ada titik yang tidak terjangkau. Betulkan di tab Ukur dulu.";
+  const p = $("#sortir-syarat");
+  p.textContent = jalan ? "" : syarat;
+  p.hidden = jalan || !syarat;
+
+  $("#sortir-mulai").disabled = !!jalan || !bolehGerak() || S.masalah.length > 0;
+  $("#sortir-berhenti").disabled = !jalan;
+  const h = so.hitungan || {};
+  $("#hitung-koin").textContent = String(h.koin || 0);
+  $("#hitung-tutup_botol").textContent = String(h.tutup_botol || 0);
+  $("#sortir-terakhir").textContent = so.benda_terakhir ? `Terakhir diambil: ${teksBenda(so.benda_terakhir)}` : "";
+}
+
+const NAMA_BENDA = { koin: "Koin", tutup_botol: "Tutup botol" };
+
+// "koin@(-150.0, 215.0) sudut=0 conf=0.93" (str(Deteksi) dari jalur.py)
+// -> "Koin di X -150, Y 215 (yakin 93%)". Format lain ditampilkan apa adanya.
+function teksBenda(s) {
+  const m = /^(\w+)@\(([-\d.]+), ([-\d.]+)\).*conf=([\d.]+)/.exec(s);
+  if (!m) return s;
+  const nama = NAMA_BENDA[m[1]] || m[1];
+  return `${nama} di X ${Math.round(m[2])}, Y ${Math.round(m[3])} (yakin ${Math.round(m[4] * 100)}%)`;
 }
 
 function gambarSetelanJog() {
@@ -870,6 +923,18 @@ function pasangTombol() {
   });
 
   $("#tombol-homing").addEventListener("click", () => kirim("homing"));
+
+  // --- sortir
+  $("#sortir-mulai").addEventListener("click", async () => {
+    const ok = await tanya({
+      judul: "Mulai sortir otomatis?",
+      isi: "Robot akan bergerak sendiri setiap kamera melihat koin atau tutup botol yang diam di belt, tanpa menunggu tombol.",
+      cek: ["Di belt hanya ada benda yang boleh diambil", "Tangan siap di saklar power"],
+      ya: "START",
+    });
+    if (ok) kirim("sortir_mulai");
+  });
+  $("#sortir-berhenti").addEventListener("click", () => kirim("sortir_berhenti"));
 
   $("#tombol-homing-ulang").addEventListener("click", async () => {
     const ok = await tanya({

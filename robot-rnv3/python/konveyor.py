@@ -40,6 +40,7 @@ relay, motornya jalan dari PSU-nya sendiri. Dua alasannya:
 Ground PSU belt, ground sensor, dan ground board HARUS tersambung semua.
 """
 
+import math
 import time
 
 import rnv3
@@ -258,6 +259,121 @@ class KonveyorManual(Konveyor):
     def periksa(self):
         self._kata("mode MANUAL: belt dan sensor tidak dipakai, operator "
                    "menaruh benda lalu menekan Enter")
+        return {}
+
+
+class KonveyorKamera(Konveyor):
+    """Tanpa motor dan sensor: KAMERA yang menjadi sensornya.
+
+    Belt diam; operator menaruh benda, kamera terus mengawasi, dan begitu
+    ada benda yang DIAM di tempat yang sama `stabil` kali berturut-turut
+    (jeda `jeda` detik), dianggap "sensor melihat benda". Syarat diam itu
+    pengaman tangan: benda yang masih dipegang/digeser posisinya berubah,
+    jadi lengan belum boleh turun. Ini BUKAN deteksi tangan -- YOLO tidak
+    kenal tangan.
+
+    kamera   : SumberDeteksi yang mengembalikan Deteksi dalam mm
+    saring   : fungsi Deteksi -> bool; hanya benda yang lolos yang dihitung
+               (dipakai untuk membuang yang tak terjangkau lengan)
+    berhenti : threading.Event; kalau di-set, penantian langsung selesai
+    tunggu_selamanya : True = abaikan timeout menunggu benda, tunggu sampai
+               ada benda atau `berhenti` di-set. Tanpa ini belt kosong
+               menghasilkan siklus "tidak ada benda" tiap timeout.
+    """
+
+    nama = "konveyor-kamera"
+
+    def __init__(self, kamera, saring=None, berhenti=None, jeda=0.5, stabil=3,
+                 toleransi_mm=3.0, tunggu_selamanya=False, settle=0.0,
+                 verbose=True, tidur=time.sleep):
+        super().__init__(settle=settle, verbose=verbose)
+        self.kamera = kamera
+        self.saring = saring or (lambda d: True)
+        self.berhenti_event = berhenti
+        self.jeda = jeda
+        self.stabil = stabil
+        self.toleransi_mm = toleransi_mm
+        self.tunggu_selamanya = tunggu_selamanya
+        self.tidur = tidur
+        self._diabaikan_terakhir = None
+
+    # Belt-nya diam terus, sama seperti KonveyorManual.
+    def jalan(self):
+        pass
+
+    def berhenti(self):
+        pass
+
+    def _nyalakan(self):
+        pass
+
+    def _matikan(self):
+        pass
+
+    def _lihat(self):
+        """Satu foto -> daftar benda yang lolos saringan. Error kamera = kosong."""
+        import kontrak_kamera
+        try:
+            semua = self.kamera.deteksi()
+        except kontrak_kamera.KameraError as e:
+            self._kata(f"kamera: {e}")
+            return []
+        lolos = [d for d in semua if self.saring(d)]
+        diabaikan = tuple(sorted((d.label, round(d.x_mm), round(d.y_mm))
+                                 for d in semua if not self.saring(d)))
+        # Dicatat sekali per perubahan, bukan tiap 0,5 detik.
+        if diabaikan and diabaikan != self._diabaikan_terakhir:
+            self._kata(f"{len(diabaikan)} benda di luar jangkauan lengan, "
+                       f"diabaikan: " + ", ".join(
+                           f"{l}@({x}, {y})" for l, x, y in diabaikan))
+        self._diabaikan_terakhir = diabaikan
+        return lolos
+
+    def _sama(self, a, b):
+        if not a or not b or len(a) != len(b):
+            return False
+        sisa = list(b)
+        for d in a:
+            cocok = next((e for e in sisa if e.label == d.label and
+                          math.hypot(e.x_mm - d.x_mm, e.y_mm - d.y_mm)
+                          <= self.toleransi_mm), None)
+            if cocok is None:
+                return False
+            sisa.remove(cocok)
+        return True
+
+    def _distop(self):
+        return self.berhenti_event is not None and self.berhenti_event.is_set()
+
+    def ada_benda(self):
+        return bool(self._lihat())
+
+    def _tunggu(self, ada, timeout):
+        akhir = time.monotonic() + timeout
+        sebelumnya, kali = None, 0
+        while not self._distop():
+            if not (ada and self.tunggu_selamanya) and time.monotonic() >= akhir:
+                return False
+            sekarang = self._lihat()
+            if not ada:
+                if not sekarang:
+                    return True
+            elif sekarang:
+                kali = kali + 1 if self._sama(sekarang, sebelumnya) else 1
+                if kali >= self.stabil:
+                    return True
+            else:
+                kali = 0
+            sebelumnya = sekarang
+            self.tidur(self.jeda)
+        return False
+
+    def periksa(self):
+        if not self.kamera.ping():
+            raise rnv3.RNV3Error("kamera tidak menjawab ping -- server kamera "
+                                 "belum jalan?")
+        self._kata(f"mode KAMERA: robot mengambil sendiri benda yang diam "
+                   f"{(self.stabil - 1) * self.jeda:.1f} s di belt")
         return {}
 
 
