@@ -1579,6 +1579,51 @@ try:
 except Exception:
     pass
 
+# KonveyorManual: operator = belt + sensor. Enter = benda ada, q = selesai.
+_jawab = iter(["", "q"])
+_belt_m = konveyor.KonveyorManual(verbose=False, tanya=lambda _t: next(_jawab))
+cek("KonveyorManual: Enter = benda datang",
+    _belt_m.maju_sampai_benda(timeout=0.1) is True)
+try:
+    _belt_m.maju_sampai_benda(timeout=0.1)
+    _m_q = False
+except KeyboardInterrupt:
+    _m_q = True
+cek("KonveyorManual: q = KeyboardInterrupt (jalankan() parkir lewat jalur normal)",
+    _m_q)
+
+def _eof(_t):
+    raise EOFError
+try:
+    konveyor.KonveyorManual(verbose=False, tanya=_eof).maju_sampai_benda()
+    _m_eof = False
+except KeyboardInterrupt:
+    _m_eof = True
+cek("KonveyorManual: EOF di prompt = selesai, bukan crash", _m_eof)
+
+# Satu siklus utuh di simulator: deteksi -> ambil -> taruh, tanpa belt/sensor.
+_bot_m = simulasi.robot_palsu()
+_bot_m.home()
+_kam_m = kontrak_kamera.SumberPalsu(
+    z_pick=jalur.z_ambil("koin"), x=(-150.0, -150.0), y=(215.0, 215.0),
+    peluang_kosong=0.0, peluang_jauh=0.0, seed=1, label=["koin"])
+_jawab_m = iter([""])
+_jl_m = jalur.Jalur(_bot_m, _kam_m,
+                    konveyor.KonveyorManual(verbose=False,
+                                            tanya=lambda _t: next(_jawab_m)),
+                    verbose=False)
+try:
+    _hasil_m = _jl_m.siklus()
+except Exception as _x:
+    _hasil_m = f"{type(_x).__name__}: {_x}"
+cek("jalur + KonveyorManual: satu siklus sukses di simulator",
+    _hasil_m == jalur.Hasil.SUKSES, str(_hasil_m))
+_kirim_m = list(_bot_m.sim.log_perintah)
+cek("jalur + KonveyorManual: vakum benar-benar ON lalu OFF (bukti log tidak kosong)",
+    "VACUM ON" in _kirim_m and "VACUM OFF" in _kirim_m, str(_kirim_m[-8:]))
+cek("jalur + KonveyorManual: tidak ada perintah LG (belt) terkirim",
+    not any(c.startswith("LG") for c in _kirim_m), str(_kirim_m))
+
 
 # ===========================================================================
 print()

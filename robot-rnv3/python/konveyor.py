@@ -204,6 +204,63 @@ class KonveyorLG(Konveyor):
         return status
 
 
+class KonveyorManual(Konveyor):
+    """Tanpa motor dan sensor: OPERATOR yang menjadi belt dan sensornya.
+
+    Dipakai selama motor belt masih dinyalakan rangkaian sendiri dan sensor
+    IR belum terpasang. Belt diam; operator menaruh benda lalu menekan Enter
+    (= "sensor melihat benda"). Kamera, kalibrasi, ambil, dan taruh di
+    jalur.py tetap jalan persis seperti mode otomatis -- cuma transport ini
+    yang ditukar.
+
+    q (atau Ctrl-C / EOF) di prompt = selesai: KeyboardInterrupt dilempar
+    supaya Jalur.jalankan() keluar lewat jalur normalnya (parkir, vakum OFF).
+    """
+
+    nama = "konveyor-manual"
+
+    def __init__(self, settle=0.0, verbose=True, tanya=input):
+        super().__init__(settle=settle, verbose=verbose)
+        self.tanya = tanya
+
+    # Belt-nya diam terus: tidak ada yang dinyalakan, dan pesan "belt JALAN"
+    # dari kelas dasar cuma akan membingungkan operator.
+    def jalan(self):
+        pass
+
+    def berhenti(self):
+        pass
+
+    def _nyalakan(self):
+        pass
+
+    def _matikan(self):
+        pass
+
+    def ada_benda(self):
+        return False            # tidak ada sensor; yang tahu cuma operator
+
+    def _tunggu(self, ada, timeout):
+        if ada:
+            teks = ("\ntaruh benda di belt (di dalam kotak ROI), tangan "
+                    "MENJAUH -- Enter = robot ambil, q = selesai: ")
+        else:
+            teks = ("  benda tidak diambil -- singkirkan dari belt dengan "
+                    "tangan, lalu Enter (q = selesai): ")
+        try:
+            jawab = self.tanya(teks)
+        except EOFError:
+            raise KeyboardInterrupt from None
+        if jawab.strip().lower() == "q":
+            raise KeyboardInterrupt
+        return True
+
+    def periksa(self):
+        self._kata("mode MANUAL: belt dan sensor tidak dipakai, operator "
+                   "menaruh benda lalu menekan Enter")
+        return {}
+
+
 class KonveyorESP(Konveyor):
     """Belt dan sensor dipegang ESP32 kelompok 2, lewat port serial terpisah.
 

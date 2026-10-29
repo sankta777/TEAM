@@ -412,6 +412,17 @@ def pembaca_klik_kamera(kamera, judul="kalibrasi -- klik tengah penanda"):
         cv2.setMouseCallback(judul, saat_klik)
         print("      klik kiri TENGAH penanda di jendela kamera, lalu KLIK KANAN untuk "
               "simpan (koin tak terlihat? klik kanan tanpa tanda = lewati)", flush=True)
+        try:
+            return _ulang(klik, simpan)
+        finally:
+            # Jendela ditutup tiap selesai satu titik: di antara titik tidak
+            # ada yang memanggil waitKey (robot bergerak, terminal menunggu
+            # Enter), jadi jendela yang dibiarkan terbuka dicap Windows
+            # "Not Responding" dan operator menutupnya -> sesi mati.
+            cv2.destroyWindow(judul)
+            cv2.waitKey(1)
+
+    def _ulang(klik, simpan):
         while True:
             ok, frame = kamera.read()
             if ok and frame is not None:

@@ -607,7 +607,7 @@ class JalurSimulasi(Jalur):
 # ---------------------------------------------------------------------------
 def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
           kamera_host="127.0.0.1", kamera_port=kontrak_kamera.PORT_DEFAULT,
-          kalibrasi_file=None,
+          kalibrasi_file=None, manual=False,
           verbose=True, on_status=None, kosong=0.0, jauh=0.0, seed=None):
     """Bangun Jalur lengkap. Dipakai CLI di bawah.
 
@@ -662,6 +662,13 @@ def rakit(sim=False, pakai_esp=False, port=PORT, esp_port=ESP_PORT,
                 settle=BELT_SETTLE, verbose=verbose)
         kelas = Jalur
 
+    if manual:
+        # Operator menggantikan belt + sensor. Kelas Jalur biasa, bukan
+        # JalurSimulasi: kait-kait simulasinya mengatur sensor palsu milik
+        # KonveyorLG, yang di mode ini tidak ada.
+        belt = mod_konveyor.KonveyorManual(verbose=verbose)
+        kelas = Jalur
+
     jalur = kelas(bot, kamera, belt, verbose=verbose, on_status=on_status)
 
     def tutup():
@@ -684,6 +691,8 @@ def main(argv=None):
                    help="pakai simulator robot + kamera palsu, tanpa hardware")
     p.add_argument("--esp", action="store_true",
                    help="belt dikontrol ESP32, bukan output LG board robot")
+    p.add_argument("--manual", action="store_true",
+                   help="tanpa belt & sensor: operator menaruh benda lalu Enter")
     p.add_argument("--port", default=PORT, help=f"port serial robot (default {PORT})")
     p.add_argument("--esp-port", default=ESP_PORT,
                    help=f"port serial ESP32 (default {ESP_PORT})")
@@ -712,7 +721,7 @@ def main(argv=None):
     jalur, tutup = rakit(
         sim=a.sim, pakai_esp=a.esp, port=a.port, esp_port=a.esp_port,
         kamera_host=a.kamera_host, kamera_port=a.kamera_port,
-        kalibrasi_file=a.kalibrasi,
+        kalibrasi_file=a.kalibrasi, manual=a.manual,
         verbose=not a.diam, kosong=a.kosong, jauh=a.jauh, seed=a.seed)
 
     try:
