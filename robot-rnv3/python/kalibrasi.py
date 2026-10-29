@@ -45,7 +45,14 @@ dibuat terpisah lalu dipilih berdasarkan label dari kamera.
 CARA PAKAI
 
     python3 kalibrasi.py --demo        # uji mandiri dengan titik buatan
-    python3 kalibrasi.py --sesi        # pemandu kalibrasi (butuh robot)
+    python3 kalibrasi.py --sesi        # pemandu kalibrasi, piksel diketik
+
+    # DIANJURKAN -- mode penanda, satu program, piksel diklik di jendela:
+    python kalibrasi.py --sesi --kamera 0
+
+    # sesudahnya, robot MENUNJUK benda yang dilihat YOLO (tanpa vakum):
+    python server_kamera.py --sumber 0                  # terminal 1
+    python kalibrasi.py --uji                           # terminal 2
 
     import kalibrasi
     k = kalibrasi.Kalibrasi.muat("kalibrasi.json")
@@ -59,6 +66,8 @@ import time
 
 MIN_TITIK = 4
 GALAT_WAJAR_MM = 3.0        # di atas ini, kalibrasinya patut dicurigai
+MELAYANG_MM = 5.0           # jarak ujung vakum di atas belt/benda: cukup untuk
+                            # menyelipkan koin, tanpa menyentuh
 
 
 class KalibrasiError(RuntimeError):
@@ -269,25 +278,34 @@ class Kalibrasi:
 # ---------------------------------------------------------------------------
 # SESI KALIBRASI — dipandu, butuh robot DAN kamera terpasang
 # ---------------------------------------------------------------------------
-def sesi_kalibrasi(bot, titik_mm=None, z=None, baca_piksel=None, cetak=print):
+def sesi_kalibrasi(bot, titik_mm=None, z=None, baca_piksel=None, cetak=print,
+                   minggir=None, tanya=input):
     """Pandu operator mengumpulkan pasangan titik, lalu bangun Kalibrasi.
 
     bot          : objek RNV3 yang sudah di-home
     titik_mm     : daftar (x, y) tempat robot akan berdiri. Sebarkan!
     z            : tinggi saat menandai; pakai tinggi permukaan belt
     baca_piksel  : fungsi () -> (u, v). Default: tanya lewat input().
-                   Kelompok kamera bisa menyediakan versi yang membaca
-                   langsung dari frame, supaya tidak perlu diketik manual.
+                   pembaca_klik_kamera() membaca langsung dari klik di frame.
+    minggir      : fungsi () yang membawa lengan keluar dari pandangan kamera.
+                   Kalau diisi, dipakai MODE PENANDA (lihat di bawah).
 
     Alur tiap titik: robot pindah ke (x, y) yang kita TAHU persis -> operator
-    melihat di mana ujung gripper muncul di gambar kamera -> koordinat
-    pikselnya dicatat. Ulangi minimal 4 kali.
+    melihat di mana titik itu muncul di gambar kamera -> koordinat pikselnya
+    dicatat. Ulangi minimal 4 kali.
+
+    MODE PENANDA (minggir diisi): kamera melihat dari ATAS, jadi ujung vakum
+    tertutup badan gripper sendiri -- yang terlihat cuma bagian atasnya, yang
+    tingginya beda dan kena paralaks. Maka: vakum melayang MELAYANG_MM di atas
+    belt, operator menaruh penanda tipis (koin) tepat di bawahnya, lengan
+    minggir, baru penandanya yang diklik. Penanda di permukaan belt = tepat di
+    bidang tempat homografi berlaku.
     """
     if titik_mm is None:
-        # Sebaran kotak di zona ambil. Sengaja tidak segaris.
-        titik_mm = [(-120.0, 240.0), (120.0, 240.0),
-                    (120.0, 290.0), (-120.0, 290.0),
-                    (0.0, 265.0)]
+        # Grid 3x3 di zona ambil. Sengaja tidak segaris; titik tengah tiap sisi
+        # ikut meratakan galat ke seluruh area, bukan cuma di pojok.
+        titik_mm = [(x, y) for y in (240.0, 265.0, 290.0)
+                    for x in (-120.0, 0.0, 120.0)]
     if z is None:
         raise KalibrasiError(
             "z wajib diisi — pakai tinggi PERMUKAAN BELT, karena di bidang "
@@ -309,20 +327,47 @@ def sesi_kalibrasi(bot, titik_mm=None, z=None, baca_piksel=None, cetak=print):
     cetak("")
 
     pasangan = []
+    z_tanda = z + MELAYANG_MM if minggir is not None else z
     for i, (x, y) in enumerate(titik_mm, 1):
-        ok, alasan = __import__("rnv3").check_reach(x, y, z)
+        # Cek di KEDUA tinggi yang benar-benar dilewati, dengan aturan yang
+        # sama dengan move() -- titik yang lolos di bawah bisa ditolak di
+        # tinggi jelajah, dan move() yang menolak di tengah sesi = crash.
+        rnv3 = __import__("rnv3")
+        ok, alasan = True, ""
+        for zz in (z_tanda, max(z + 60, z)):
+            ok, alasan = rnv3.check_aman(x, y, zz, 0.0)
+            if not ok:
+                break
         if not ok:
             cetak(f"  [{i}] ({x:.0f}, {y:.0f}) DILEWATI — {alasan}")
             continue
-        cetak(f"  [{i}/{len(titik_mm)}] robot -> X{x:.0f} Y{y:.0f} Z{z:.0f}")
+        cetak(f"  [{i}/{len(titik_mm)}] robot -> X{x:.0f} Y{y:.0f} Z{z_tanda:.0f}")
         bot.move(z=max(z + 60, z), f=30)
         bot.goto_xy(x, y, f=60)
-        bot.move(z=z, f=20)
+        if minggir is not None:
+            # Grid bawaan bukan hasil ukur belt: kalau titiknya jatuh di atas
+            # rel/rangka (lebih tinggi dari belt), turun ke z belt = menabrak.
+            # Operator ada di depan robot -- suruh dia lihat dulu.
+            try:
+                jawab = tanya("      CEK: tepat di bawah vakum itu BELT (bukan rel/rangka)? "
+                              "Enter = turun, l+Enter = lewati titik ini ")
+            except EOFError:
+                jawab = "l"
+            if jawab.strip().lower() == "l":
+                cetak("      dilewati")
+                continue
+        bot.move(z=z_tanda, f=20)
         try:
+            if minggir is not None:
+                tanya("      taruh penanda (koin) TEPAT di bawah ujung vakum, "
+                      "lalu Enter -> lengan minggir ")
+                minggir()
             u, v = baca_piksel()
-        except (ValueError, KeyboardInterrupt):
+        except (ValueError, EOFError):
             cetak("      dilewati")
             continue
+        # KeyboardInterrupt sengaja TIDAK ditangkap: Ctrl+C = hentikan sesi,
+        # bukan lewati satu titik (dulu harus ditekan 9x untuk keluar).
         pasangan.append(((u, v), (x, y)))
         cetak(f"      tercatat: piksel ({u:.0f}, {v:.0f}) = mm ({x:.0f}, {y:.0f})")
 
@@ -336,6 +381,118 @@ def sesi_kalibrasi(bot, titik_mm=None, z=None, baca_piksel=None, cetak=print):
     cetak("")
     cetak(k.laporan())
     return k
+
+
+def pembaca_klik_kamera(kamera, judul="kalibrasi -- klik tengah penanda"):
+    """baca_piksel untuk sesi_kalibrasi(): jendela kamera live, operator klik.
+
+    Klik kiri boleh diulang sampai pas; klik kanan / Enter / Spasi = pakai
+    titik itu, Esc = lewati titik ini. Konfirmasi lewat MOUSE juga, karena
+    tombol keyboard cuma sampai kalau jendela ini yang memegang fokus -- di
+    lapangan Enter-nya nyasar ke terminal dan sesi tampak macet.
+    Titik yang sudah tercatat tetap digambar (lingkaran hijau) supaya
+    sebarannya kelihatan. `kamera` cukup punya read() -> (ok, frame).
+    """
+    import cv2
+
+    tercatat = []
+    petunjuk = ("klik kiri: tandai tengah koin | klik kanan: SIMPAN | "
+                "klik kanan tanpa tanda: LEWATI (koin tak terlihat)")
+
+    def baca():
+        klik, simpan = [], []
+
+        def saat_klik(ev, x, y, *_):
+            if ev == cv2.EVENT_LBUTTONDOWN:
+                klik[:] = [(x, y)]
+            elif ev == cv2.EVENT_RBUTTONDOWN:
+                simpan.append(bool(klik))   # tanpa tanda = lewati titik ini
+
+        cv2.namedWindow(judul)
+        cv2.setMouseCallback(judul, saat_klik)
+        print("      klik kiri TENGAH penanda di jendela kamera, lalu KLIK KANAN untuk "
+              "simpan (koin tak terlihat? klik kanan tanpa tanda = lewati)", flush=True)
+        while True:
+            ok, frame = kamera.read()
+            if ok and frame is not None:
+                for p in tercatat:
+                    cv2.circle(frame, p, 8, (0, 200, 0), 2)
+                for p in klik:
+                    cv2.drawMarker(frame, p, (0, 0, 255), cv2.MARKER_CROSS, 30, 2)
+                for warna, tebal in (((0, 0, 0), 4), ((255, 255, 255), 1)):
+                    cv2.putText(frame, petunjuk, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.6, warna, tebal, cv2.LINE_AA)
+                cv2.imshow(judul, frame)
+            tombol = cv2.waitKey(30) & 0xFF
+            if simpan and not simpan[-1]:
+                raise ValueError("dilewati operator")
+            if (simpan or tombol in (13, 10, 32)) and klik:
+                tercatat.append(klik[0])
+                return float(klik[0][0]), float(klik[0][1])
+            if tombol == 27:
+                raise ValueError("dilewati operator")
+            if tombol != 255:
+                print(f"      (tombol kode {tombol} diabaikan)", flush=True)
+
+    return baca
+
+
+def uji_kalibrasi(bot, sumber, z_belt, tinggi, cetak=print, tanya=input):
+    """Robot MENUNJUK benda yang dilihat kamera -- tanpa vakum, tanpa bak.
+
+    Uji rantai penuh (YOLO -> piksel -> kalibrasi -> mm -> gerak) sebelum
+    jalur.py dijalankan: ujung vakum melayang MELAYANG_MM di atas tiap benda,
+    operator melihat apakah tepat di tengahnya.
+
+    sumber : SumberDeteksi yang mengembalikan Deteksi dalam mm
+             (SumberTCP dengan kalibrasi=...)
+    tinggi : fungsi label -> tinggi benda (mm), mis. jalur.profil(l)["tinggi"]
+    Return daftar (label, x_mm, y_mm) yang berhasil ditunjuk.
+    """
+    import kontrak_kamera
+    import rnv3
+
+    ditunjuk = []
+    while True:
+        try:
+            jawab = tanya("\ntaruh benda di belt -- Enter = tunjuk, q = selesai: ")
+        except (KeyboardInterrupt, EOFError):
+            break
+        if jawab.strip().lower() == "q":
+            break
+        try:
+            hasil = sumber.deteksi()
+        except kontrak_kamera.KameraError as e:
+            cetak(f"  kamera: {e}")
+            continue
+        if not hasil:
+            cetak("  kamera tidak melihat benda (cek ROI dan pencahayaan)")
+            continue
+        for d in hasil:
+            z = z_belt + tinggi(d.label) + MELAYANG_MM
+            naik = z + 50.0
+            piksel = (f"piksel ({d.u_px:.0f}, {d.v_px:.0f}) -> "
+                      if d.u_px is not None else "")
+            cetak(f"  {d.label} conf {d.conf:.2f}  {piksel}X{d.x_mm:.1f} Y{d.y_mm:.1f}")
+            ok, alasan = rnv3.check_reach(d.x_mm, d.y_mm, z)
+            if not ok:
+                cetak(f"    dilewati: {alasan}")
+                continue
+            try:
+                bot.move(z=max(bot.z, naik), f=30)
+                bot.goto_xy(d.x_mm, d.y_mm, f=60)
+                bot.move(z=z, f=20)
+                tanya(f"    vakum melayang {MELAYANG_MM:.0f} mm di atasnya -- "
+                      "tepat di tengah? Enter = lanjut ")
+                bot.move(z=naik, f=20)
+            except rnv3.RNV3Error as e:
+                cetak(f"    gerakan ditolak: {e}")
+                continue
+            except (KeyboardInterrupt, EOFError):
+                bot.move(z=naik, f=20)
+                return ditunjuk
+            ditunjuk.append((d.label, d.x_mm, d.y_mm))
+    return ditunjuk
 
 
 # ---------------------------------------------------------------------------
@@ -409,24 +566,125 @@ def _demo():
 
 if __name__ == "__main__":
     import argparse
+    import sys
+
+    # python.exe yang dipanggil dari terminal WSL menulis ke pipe, bukan konsol:
+    # tanpa ini output ter-buffer dan program tampak macet padahal jalan.
+    sys.stdout.reconfigure(line_buffering=True)
 
     p = argparse.ArgumentParser(description="Kalibrasi piksel -> mm.")
     p.add_argument("--demo", action="store_true",
                    help="uji mandiri dengan titik buatan, tanpa alat apa pun")
     p.add_argument("--sesi", action="store_true",
                    help="pemandu kalibrasi (BUTUH robot + kamera terpasang)")
-    p.add_argument("--port", default="COM4", help="port serial robot")
-    p.add_argument("--z", type=float, default=-80.0,
-                   help="tinggi permukaan belt (UKUR DULU)")
+    p.add_argument("--port", default=None,
+                   help="port serial robot (default: cari chip CH340 otomatis)")
+    p.add_argument("--z", type=float, default=None,
+                   help="tinggi permukaan belt (default: z_belt di setelan-robot.json)")
     p.add_argument("--keluar", default="kalibrasi.json")
+    p.add_argument("--kamera", default=None, metavar="SUMBER",
+                   help="[--sesi] buka kamera ini (mis. 0) -> MODE PENANDA: klik "
+                        "penanda di jendela, tidak perlu ketik piksel")
+    p.add_argument("--lebar", type=int, default=1280,
+                   help="[--kamera] HARUS sama dengan server_kamera.py")
+    p.add_argument("--tinggi", type=int, default=720)
+    p.add_argument("--x", type=float, nargs="+", default=[-120.0, 0.0, 120.0],
+                   help="[--sesi] kolom X grid kalibrasi (mm). Pilih yang TERLIHAT "
+                        "kamera, mis. --x -160 -120 -80")
+    p.add_argument("--y", type=float, nargs="+", default=[240.0, 265.0, 290.0],
+                   help="[--sesi] baris Y grid kalibrasi (mm)")
+    p.add_argument("--minggir", default=None, metavar="X,Y",
+                   help="[--kamera] titik lengan keluar dari pandangan kamera "
+                        "(default: XY parkir di setelan-robot.json)")
+    p.add_argument("--uji", action="store_true",
+                   help="robot MENUNJUK benda yang dideteksi server_kamera.py "
+                        "(harus sudah jalan) memakai --keluar sebagai kalibrasi")
     a = p.parse_args()
 
-    if a.demo or not a.sesi:
+    if a.demo or not (a.sesi or a.uji):
         raise SystemExit(_demo())
 
+    import setelan
+    _s = setelan.muat()
+    if a.z is None:
+        a.z = _s["z_belt"]
+        print(f"z belt dari setelan-robot.json: {a.z}")
+
     import rnv3
-    with rnv3.RNV3(a.port, verbose=False) as bot:
-        bot.home()
-        k = sesi_kalibrasi(bot, z=a.z)
-        k.simpan(a.keluar)
-        print(f"\ntersimpan di {a.keluar}")
+
+    # Dicek SEBELUM kamera dibuka: robot tak tercolok harus ketahuan di sini,
+    # bukan sebagai traceback serial setelah jendela kamera muncul.
+    if not a.port:
+        a.port = rnv3.cari_port()
+        if not a.port:
+            raise SystemExit(1)
+        print(f"robot ditemukan di {a.port}")
+    else:
+        import serial.tools.list_ports as lp
+        terlihat = [p.device for p in lp.comports()]
+        if a.port.upper() not in (d.upper() for d in terlihat):
+            raise SystemExit(
+                f"port {a.port} tidak ada. Port yang terlihat: "
+                f"{', '.join(terlihat) or 'TIDAK ADA'}\n"
+                "  - robot sudah dicolok USB ke laptop INI dan power-nya ON?\n"
+                "  - kabel USB-nya kabel DATA, bukan kabel cas?\n"
+                "  - atau hapus --port supaya dicari otomatis")
+
+    def buka_robot():
+        try:
+            return rnv3.RNV3(a.port, verbose=False)
+        except Exception as err:
+            raise SystemExit(
+                f"\nGagal membuka {a.port}: {err}\n"
+                "  - tutup GUI robot / Arduino IDE (satu port satu program)\n"
+                "  - port terdaftar tapi 'cannot find the file'? chip USB robot\n"
+                "    gagal menyala (Device Manager: kode 10) -- sering karena hub\n"
+                "    USB. Colok langsung ke laptop, atau cabut-colok dengan robot ON.")
+
+    if a.uji:
+        import jalur
+        import kontrak_kamera
+        kal = Kalibrasi.muat(a.keluar)
+        print(kal.laporan())
+        sumber = kontrak_kamera.SumberTCP(kalibrasi=kal)
+        if not sumber.ping():
+            raise SystemExit("server kamera tidak menjawab -- jalankan dulu: "
+                             "python server_kamera.py --sumber 0")
+        with buka_robot() as bot:
+            bot.home()
+            uji_kalibrasi(bot, sumber, a.z, lambda l: jalur.profil(l)["tinggi"])
+        raise SystemExit(0)
+
+    if a.kamera is not None:
+        mx, my = ((float(n) for n in a.minggir.split(",")) if a.minggir
+                  else _s["parkir"][:2])
+        z_minggir = a.z + 60
+        ok, alasan = rnv3.check_reach(mx, my, z_minggir)
+        if not ok:
+            raise SystemExit(f"titik minggir X{mx} Y{my} Z{z_minggir} tak "
+                             f"terjangkau: {alasan} -- pakai --minggir")
+
+    # Robot dibuka DULU: kalau port-nya bermasalah, kamera tidak perlu dibuka.
+    with buka_robot() as bot:
+        kamera = minggir = baca = None
+        try:
+            if a.kamera is not None:
+                import server_kamera
+                kamera, _ = server_kamera.buka_yolo(
+                    sumber=a.kamera, lebar=a.lebar, tinggi=a.tinggi, pakai_model=False)
+                baca = pembaca_klik_kamera(kamera)
+
+                def minggir():
+                    bot.move(z=z_minggir, f=20)
+                    bot.goto_xy(mx, my, f=60)
+            bot.home()
+            titik = [(x, y) for y in a.y for x in a.x]
+            k = sesi_kalibrasi(bot, titik_mm=titik, z=a.z, baca_piksel=baca,
+                               minggir=minggir)
+            k.simpan(a.keluar)
+            print(f"\ntersimpan di {a.keluar}")
+        finally:
+            if kamera is not None:
+                import cv2
+                kamera.release()
+                cv2.destroyAllWindows()

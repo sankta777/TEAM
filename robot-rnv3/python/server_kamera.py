@@ -114,6 +114,16 @@ def buka_yolo(repo=REPO_KAMERA_DEFAULT, sumber="0", lebar=1280, tinggi=720,
         kamera.release()
         raise SystemExit(f"kamera '{sumber}' tidak memberi frame")
     print(f"kamera '{sumber}' terbuka, frame {frame.shape[1]}x{frame.shape[0]}")
+    if detektor is not None and roi is None:
+        # ROI yang digambar dengan drag mouse di detect.py repo kamera -- satu
+        # sumber, jadi area aktif sama persis dengan yang dilihat operator.
+        from src.config import DEFAULT_ROI_PATH
+        from src.utils import load_roi
+        detektor.roi = load_roi(frame.shape[1], frame.shape[0], DEFAULT_ROI_PATH)
+        if detektor.roi is not None:
+            print(f"ROI dari {DEFAULT_ROI_PATH}: {detektor.roi}")
+    if detektor is not None:
+        print(f"ROI aktif: {detektor.roi or 'tidak ada -- seluruh frame'}")
     return kamera, detektor
 
 
@@ -165,6 +175,9 @@ def _roi(teks):
 
 
 if __name__ == "__main__":
+    # python.exe yang dipanggil dari terminal WSL menulis ke pipe, bukan konsol:
+    # tanpa ini output ter-buffer dan program tampak macet padahal jalan.
+    sys.stdout.reconfigure(line_buffering=True)
     p = argparse.ArgumentParser(description="Server kamera YOLO sesuai kontrak_kamera.py.")
     p.add_argument("--sumber", default="0", help="index webcam atau URL stream (default 0)")
     p.add_argument("--repo", default=REPO_KAMERA_DEFAULT,
@@ -174,7 +187,9 @@ if __name__ == "__main__":
     p.add_argument("--tinggi", type=int, default=720)
     p.add_argument("--conf", type=float, default=0.25)
     p.add_argument("--imgsz", type=int, default=1280)
-    p.add_argument("--roi", type=_roi, default=None, help="area aktif x1,y1,x2,y2 (piksel)")
+    p.add_argument("--roi", type=_roi, default=None,
+                   help="area aktif x1,y1,x2,y2 (piksel). Default: roi.json di repo "
+                        "kamera, digambar dengan drag mouse di detect.py")
     p.add_argument("--host", default="127.0.0.1",
                    help="0.0.0.0 kalau orkestrator jalan di laptop lain")
     p.add_argument("--port", type=int, default=kontrak_kamera.PORT_DEFAULT)

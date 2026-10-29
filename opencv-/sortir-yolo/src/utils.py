@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
 from datetime import datetime
 from pathlib import Path
@@ -86,6 +87,47 @@ def draw_roi(frame: np.ndarray, roi: BBox | None, active: bool = True) -> None:
     color = (255, 200, 0)  # Cyan / Kuning-biru terang
     cv2.rectangle(frame, (rx1, ry1), (rx2, ry2), color, 2)
     _text_with_outline(frame, "ZONA AKTIF (ROI)", (rx1 + 8, ry1 + 22), 0.6)
+
+
+def roi_from_drag(
+    start: tuple[int, int], end: tuple[int, int], width: int, height: int, min_size: int = 20
+) -> BBox | None:
+    """Dua sudut hasil drag mouse -> ROI rapi (x1<x2, y1<y2, di dalam frame).
+
+    Drag ke arah mana pun boleh. None kalau kotaknya terlalu kecil (klik tanpa geser).
+    """
+    x1, x2 = sorted((start[0], end[0]))
+    y1, y2 = sorted((start[1], end[1]))
+    x1, y1, x2, y2 = clamp_bbox((x1, y1, x2, y2), width, height)
+    if x2 - x1 < min_size or y2 - y1 < min_size:
+        return None
+    return x1, y1, x2, y2
+
+
+def save_roi(roi: BBox, width: int, height: int, path: Path) -> None:
+    """Simpan ROI beserta resolusi frame tempat ia digambar."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {"roi": [int(v) for v in roi], "lebar": int(width), "tinggi": int(height)}
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def load_roi(width: int, height: int, path: Path) -> BBox | None:
+    """Baca ROI tersimpan untuk frame width x height.
+
+    Kalau resolusi saat menggambar berbeda, ROI diskalakan supaya menutupi area
+    yang sama. None kalau belum pernah disimpan atau berkasnya rusak.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        x1, y1, x2, y2 = (float(v) for v in data["roi"])
+        saved_w, saved_h = float(data["lebar"]), float(data["tinggi"])
+        sx, sy = width / saved_w, height / saved_h
+    except FileNotFoundError:
+        return None
+    except (ValueError, KeyError, TypeError, ZeroDivisionError) as exc:
+        print(f"[ROI] {path} rusak ({exc!r}) -- diabaikan, gambar ulang dengan drag mouse")
+        return None
+    return clamp_bbox((x1 * sx, y1 * sy, x2 * sx, y2 * sy), width, height)
 
 
 def iou_xyxy(a: BBox, b: BBox) -> float:
@@ -340,7 +382,7 @@ def draw_overlay(
     _text_with_outline(frame, " | ".join(status_parts), (10, 25), 0.65)
     _text_with_outline(
         frame,
-        "q: keluar | s: foto | t: track | f: filter | r: ROI | w: warna | +/-: conf",
+        "q: keluar | s: foto | t: track | f: filter | r: ROI | drag: atur ROI | klik kanan: hapus ROI | w: warna | +/-: conf",
         (10, frame.shape[0] - 10),
         0.5,
     )

@@ -88,3 +88,31 @@ def test_penstabil_anti_flicker_tahan_frame():
     assert len(f4) == 1  # Tetap ditahan agar tidak flicker
 
 
+
+
+# ----------------------------------------------------------------- ROI drag mouse
+from src.utils import load_roi, roi_from_drag, save_roi  # noqa: E402
+
+
+def test_roi_from_drag_arah_bebas_dan_terpotong_frame():
+    # drag dari kanan-bawah ke kiri-atas, ujungnya keluar frame
+    assert roi_from_drag((900, 700), (-50, 100), 1280, 720) == (0, 100, 900, 700)
+
+
+def test_roi_from_drag_klik_tanpa_geser_ditolak():
+    assert roi_from_drag((300, 300), (305, 302), 1280, 720) is None
+
+
+def test_roi_simpan_muat_dan_skala(tmp_path):
+    path = tmp_path / "roi.json"
+    assert load_roi(1280, 720, path) is None  # belum pernah disimpan
+    save_roi((240, 216, 1040, 700), 1280, 720, path)
+    assert load_roi(1280, 720, path) == (240, 216, 1040, 700)
+    # resolusi berbeda -> area yang sama, diskalakan
+    assert load_roi(640, 360, path) == (120, 108, 520, 350)
+
+
+def test_roi_berkas_rusak_diabaikan(tmp_path):
+    path = tmp_path / "roi.json"
+    path.write_text("{bukan json", encoding="utf-8")
+    assert load_roi(1280, 720, path) is None

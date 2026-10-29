@@ -27,6 +27,7 @@ from src.config import (
     BOX_COLOR,
     CLASS_COLORS,
     DEFAULT_CALIB_PATH,
+    DEFAULT_ROI_PATH,
     DEFAULT_TARGET_JSON,
     DEFAULT_WEIGHTS,
     IMAGE_EXTS,
@@ -45,6 +46,9 @@ from src.utils import (
     draw_detection,
     draw_overlay,
     draw_roi,
+    load_roi,
+    roi_from_drag,
+    save_roi,
     save_screenshot,
 )
 
@@ -194,6 +198,8 @@ def run_stream(
     print("  [t]         : Toggle Object Tracking (ON/OFF)")
     print("  [f]         : Toggle Smart Filter (ON/OFF)")
     print("  [r]         : Toggle ROI Zona Kerja (ON/OFF)")
+    print("  [drag kiri] : Gambar ROI baru dengan mouse (tersimpan otomatis ke roi.json)")
+    print("  [klik kanan]: Hapus ROI (deteksi seluruh layar)")
     print("  [w]         : Toggle Warna per Kelas (Kuning=Koin, Biru=Tutup)")
     print("  [SPACE]     : Manual Trigger IR (Kunci koordinat objek diam seketika)")
     print("  [+] / [-]   : Naikkan / turunkan confidence threshold\n")
@@ -205,6 +211,23 @@ def run_stream(
     robot_status = "NO_TARGET"
     robot_status_msg = "Konveyor kosong"
 
+    # Callback mouse cuma mencatat; ROI-nya dipasang di loop utama yang tahu ukuran frame.
+    seret: dict = {"awal": None, "kini": None, "selesai": None, "hapus": False}
+
+    def on_mouse(event: int, x: int, y: int, _flags: int, _param) -> None:
+        if event == cv2.EVENT_LBUTTONDOWN:
+            seret["awal"] = seret["kini"] = (x, y)
+        elif event == cv2.EVENT_MOUSEMOVE and seret["awal"] is not None:
+            seret["kini"] = (x, y)
+        elif event == cv2.EVENT_LBUTTONUP and seret["awal"] is not None:
+            seret["selesai"] = (seret["awal"], (x, y))
+            seret["awal"] = None
+        elif event == cv2.EVENT_RBUTTONDOWN:
+            seret["hapus"] = True
+
+    cv2.namedWindow(WINDOW)
+    cv2.setMouseCallback(WINDOW, on_mouse)
+
     try:
         while True:
             ok, frame = cam.read()
@@ -215,9 +238,27 @@ def run_stream(
                 frame = cv2.flip(frame, 1)
 
             h, w = frame.shape[:2]
-            # Set default ROI ke zona tengah jika tombol 'r' ditekan tapi belum diset
             if roi_coords is None:
-                roi_coords = (int(w * 0.15), int(h * 0.20), int(w * 0.85), int(h * 0.90))
+                # ROI hasil drag sesi sebelumnya; kalau belum ada, zona tengah default untuk tombol 'r'
+                roi_coords = load_roi(w, h, DEFAULT_ROI_PATH)
+                if roi_coords is not None:
+                    roi_active = True
+                    print(f"[ROI] dimuat dari {DEFAULT_ROI_PATH}: {roi_coords}")
+                else:
+                    roi_coords = (int(w * 0.15), int(h * 0.20), int(w * 0.85), int(h * 0.90))
+
+            if seret["selesai"] is not None:
+                baru = roi_from_drag(*seret["selesai"], w, h)
+                seret["selesai"] = None
+                if baru is not None:
+                    roi_coords, roi_active = baru, True
+                    save_roi(roi_coords, w, h, DEFAULT_ROI_PATH)
+                    print(f"[ROI] diset {roi_coords} -> tersimpan di {DEFAULT_ROI_PATH}")
+            if seret["hapus"]:
+                seret["hapus"] = False
+                roi_active = False
+                DEFAULT_ROI_PATH.unlink(missing_ok=True)
+                print("[ROI] dihapus -> deteksi seluruh layar")
 
             detector.roi = roi_coords if roi_active else None
             detector.conf = current_conf
@@ -325,6 +366,9 @@ def run_stream(
                 if robot_status == "TARGET_READY" and best_t is not None:
                     hud_line += f" | X={best_t.x_mm} Y={best_t.y_mm} Z={best_t.z_mm}"
                 _text_with_outline(frame, hud_line, (10, 52), scale=0.6, color=color_hud)
+
+            if seret["awal"] is not None:  # pratinjau kotak selama mouse ditahan
+                cv2.rectangle(frame, seret["awal"], seret["kini"], (0, 255, 255), 2)
 
             cv2.imshow(WINDOW, frame)
 

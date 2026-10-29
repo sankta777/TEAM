@@ -37,6 +37,8 @@ def get_capture_dir(class_name: str) -> Path:
 DEFAULT_WEIGHTS = MODELS_DIR / "best.pt"
 DEFAULT_CALIB_PATH = ROOT / "robot_calib.json"
 DEFAULT_TARGET_JSON = OUTPUT_DIR / "target_robot.json"
+# ROI yang digambar dengan drag mouse di detect.py; dibaca juga oleh server_kamera.py (repo robot)
+DEFAULT_ROI_PATH = ROOT / "roi.json"
 
 # 3 kelas sortir (urutan = ID kelas 0, 1, 2).
 CLASS_NAMES: list[str] = ["koin", "tutup_botol", "charger"]

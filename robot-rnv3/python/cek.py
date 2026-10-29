@@ -1307,14 +1307,19 @@ cek("JENIS dipulihkan setelah pengujian", "_uji" not in jalur.JENIS)
 # dengan rumus z_jelajah sekarang dia tidak bisa menyala (rumusnya sendiri
 # menjamin clearance). Jadi yang diuji di sini: apakah dia MENYALA kalau
 # z_jelajah dikembalikan ke perilaku lama yang cacat (konstanta Z_SAFE).
+# Butuh benda TINGGI supaya Z_SAFE konstan benar-benar kurang -- jangan
+# bergantung pada tinggi benda yang kebetulan ada di JENIS hari ini.
 _zj_asli = jalur.z_jelajah
+_simpan_jenis = {k: dict(v) for k, v in jalur.JENIS.items()}
 try:
+    jalur.JENIS["_uji"] = {"tinggi": 150.0, "taruh": (-170.0, 215.0)}
     jalur.z_jelajah = lambda label: jalur.Z_SAFE
     _m = jalur.validasi_konfigurasi(cetak=False)
     cek("validasi MENANGKAP kalau tinggi jelajah dikembalikan ke konstanta",
         any("clearance" in x for x in _m), str(_m))
 finally:
     jalur.z_jelajah = _zj_asli
+    jalur.JENIS.clear(); jalur.JENIS.update(_simpan_jenis)
 cek("z_jelajah dipulihkan setelah pengujian", jalur.z_jelajah is _zj_asli)
 
 cek("Z_SAFE jalur.py dan pick_place.py tidak melenceng",
@@ -1444,6 +1449,94 @@ cek("kontrak_kamera.SumberTCP menerima kalibrasi",
 cek("jalur.py benar-benar mengimpor kalibrasi",
     "kalibrasi" in [m.__name__ for m in (kalibrasi,)] and
     getattr(jalur, "mod_kalibrasi", None) is kalibrasi)
+
+# MODE PENANDA: vakum melayang, operator menaruh koin, lengan minggir, baru klik.
+# Piksel palsu dihitung dari posisi robot SAAT penanda ditaruh, lewat kebalikan
+# _mm_asli -- jadi kalibrasi hasilnya harus menemukan peta itu lagi.
+def _px_dari_mm(x, y):
+    return ((x + 160.0) / 0.5, (360.0 - y) / 0.5)
+
+_bks = simulasi.robot_palsu()
+_bks.home()
+_MINGGIR = (0.0, 200.0)
+_ditaruh, _saat_klik = [], []
+
+_saat_cek_turun = []
+
+def _tanya_tanda(pesan):
+    if "BELT" in pesan:          # jeda cek sebelum turun
+        _saat_cek_turun.append(_bks.z)
+        return "l" if len(_saat_cek_turun) == 2 else ""   # titik ke-2 dilewati
+    _ditaruh.append((_bks.x, _bks.y, _bks.z))
+    return ""
+
+def _baca_tanda():
+    _saat_klik.append((_bks.x, _bks.y))
+    x, y, _ = _ditaruh[-1]
+    return _px_dari_mm(x, y)
+
+def _minggir():
+    _bks.move(z=jalur.Z_BELT + 60, f=20)
+    _bks.goto_xy(*_MINGGIR, f=60)
+
+_ks = kalibrasi.sesi_kalibrasi(_bks, z=jalur.Z_BELT, baca_piksel=_baca_tanda,
+                               minggir=_minggir, tanya=_tanya_tanda,
+                               cetak=lambda *_: None)
+cek("sesi penanda: operator ditanya SEBELUM turun, saat vakum masih tinggi",
+    len(_saat_cek_turun) == 9 and all(z > jalur.Z_BELT + 50 for z in _saat_cek_turun),
+    str(_saat_cek_turun[:3]))
+cek("sesi penanda: titik yang dijawab 'l' dilewati, sisanya terkumpul",
+    len(_ks.pasangan) == 8 and (0.0, 240.0) not in [mm for _, mm in _ks.pasangan],
+    f"{len(_ks.pasangan)} titik")
+cek("sesi penanda: vakum MELAYANG di atas belt saat penanda ditaruh",
+    all(abs(z - (jalur.Z_BELT + kalibrasi.MELAYANG_MM)) < 1e-9 for _, _, z in _ditaruh),
+    str({round(z, 2) for _, _, z in _ditaruh}))
+cek("sesi penanda: lengan sudah minggir SEBELUM piksel dibaca",
+    all(p == _MINGGIR for p in _saat_klik), str(_saat_klik[:2]))
+cek("sesi penanda: kalibrasi menemukan peta piksel->mm yang benar",
+    _ks.galat_maks() < 1e-6 and
+    max(abs(a - b) for a, b in zip(_ks.ke_mm(300.0, 200.0), _mm_asli(300.0, 200.0))) < 1e-6)
+
+# Titik yang terjangkau di bawah tapi DITOLAK di tinggi jelajah (z+60) harus
+# dilewati di awal, bukan membuat move() melempar di tengah sesi.
+_bkj = simulasi.robot_palsu()
+_bkj.home()
+_lewat = []
+_kj = kalibrasi.sesi_kalibrasi(
+    _bkj, titik_mm=[(-200.0, 290.0), (-160.0, 240.0), (-120.0, 240.0),
+                    (-120.0, 290.0), (-80.0, 265.0)],
+    z=jalur.Z_BELT, baca_piksel=lambda: _px_dari_mm(_bkj.x, _bkj.y),
+    cetak=_lewat.append)
+cek("sesi: titik tak terjangkau di tinggi jelajah dilewati, sesi tidak crash",
+    len(_kj.pasangan) == 4 and any("(-200, 290) DILEWATI" in t for t in _lewat),
+    f"{len(_kj.pasangan)} titik")
+
+# --uji: robot menunjuk benda dari kamera, melayang di atasnya, tanpa vakum.
+class _SumberMm(kontrak_kamera.SumberDeteksi):
+    def deteksi(self):
+        return [kontrak_kamera.Deteksi(x_mm=0.0, y_mm=jalur.BELT_Y, label="tutup_botol",
+                                       u_px=320.0, v_px=200.0),
+                kontrak_kamera.Deteksi(x_mm=9999.0, y_mm=9999.0, label="koin")]
+
+_buj = simulasi.robot_palsu()
+_buj.home()
+_jawab_uji = iter(["", "", "q"])
+_saat_tunjuk = []
+
+def _tanya_uji(pesan):
+    if "tengah" in pesan:
+        _saat_tunjuk.append((_buj.x, _buj.y, _buj.z))
+    return next(_jawab_uji)
+
+_tunjuk = kalibrasi.uji_kalibrasi(_buj, _SumberMm(), jalur.Z_BELT,
+                                  lambda l: jalur.profil(l)["tinggi"],
+                                  cetak=lambda *_: None, tanya=_tanya_uji)
+_z_tunjuk = jalur.Z_BELT + jalur.profil("tutup_botol")["tinggi"] + kalibrasi.MELAYANG_MM
+cek("--uji: benda terjangkau ditunjuk, yang di luar jangkauan dilewati",
+    [t[0] for t in _tunjuk] == ["tutup_botol"], str(_tunjuk))
+cek("--uji: vakum melayang di atas PERMUKAAN benda, tepat di XY-nya",
+    _saat_tunjuk == [(0.0, jalur.BELT_Y, _z_tunjuk)], f"{_saat_tunjuk} vs Z{_z_tunjuk}")
+cek("--uji: vakum tidak pernah dinyalakan", not _buj.sim.vacuum_on)
 
 
 # ===========================================================================

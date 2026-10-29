@@ -83,11 +83,11 @@ BELT_X_LEBAR = 150.0     # setengah lebar zona ambil yang dipakai kamera
 # Kunci HARUS sama persis dengan label yang dikirim model kamera. Kelompok
 # kamera memakai "tutup_botol" dan "koin"; label yang tidak dikenal jatuh ke
 # JENIS_DEFAULT, jadi salah eja di sini = botol diperlakukan sebagai koin.
-# "tutup_botol" = botol BERDIRI, vakum menempel di tutupnya -> tinggi diukur
-# dari belt ke permukaan tutup (~150 mm, UKUR ULANG dengan botol aslinya).
+# "tutup_botol" = tutup botol LEPAS yang rebah di belt (bukan botol berdiri).
+# Diukur 28 Okt 2026: tutup kuning dan putih sama-sama ~10 mm.
 # "taruh" = tengah bak, dari setelan-robot.json.
 JENIS = {
-    "tutup_botol": {"tinggi": 150.0, "taruh": tuple(_S["bak"]["tutup_botol"])},
+    "tutup_botol": {"tinggi": 10.0, "taruh": tuple(_S["bak"]["tutup_botol"])},
     "koin":        {"tinggi": 2.0,   "taruh": tuple(_S["bak"]["koin"])},
 }
 JENIS_DEFAULT = "koin"   # dipakai kalau label dari kamera tidak dikenal
@@ -733,4 +733,7 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # python.exe yang dipanggil dari terminal WSL menulis ke pipe, bukan konsol:
+    # tanpa ini output ter-buffer dan program tampak macet padahal jalan.
+    sys.stdout.reconfigure(line_buffering=True)
     sys.exit(main())
